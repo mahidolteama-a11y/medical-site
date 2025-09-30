@@ -17,6 +17,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({ task, onClose, rolesFilter, 
   const [loading, setLoading] = useState(false)
   const [users, setUsers] = useState<User[]>([])
   const [patients, setPatients] = useState<PatientProfile[]>([])
+  const [taskType, setTaskType] = useState<'general' | 'appointment'>('general')
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -32,6 +33,10 @@ export const TaskForm: React.FC<TaskFormProps> = ({ task, onClose, rolesFilter, 
     fetchPatients()
     
     if (task) {
+      // Determine task type based on existing task
+      const isAppointment = !!(task.patient_id && task.due_date)
+      setTaskType(isAppointment ? 'appointment' : 'general')
+      
       setFormData({
         title: task.title,
         description: task.description,
@@ -79,6 +84,20 @@ export const TaskForm: React.FC<TaskFormProps> = ({ task, onClose, rolesFilter, 
     e.preventDefault()
     setLoading(true)
 
+    // Validation for appointments
+    if (taskType === 'appointment') {
+      if (!formData.patient_id) {
+        alert('Please select a patient for the appointment.')
+        setLoading(false)
+        return
+      }
+      if (!formData.due_date) {
+        alert('Please select a date for the appointment.')
+        setLoading(false)
+        return
+      }
+    }
+
     try {
       if (task) {
         // Update existing task
@@ -90,12 +109,14 @@ export const TaskForm: React.FC<TaskFormProps> = ({ task, onClose, rolesFilter, 
         }
       } else {
         // Create new task
-        const { error } = await createTask({
+        const taskData = {
           ...formData,
           assigned_to: forceAssignedToUserId || formData.assigned_to,
           assigned_by: user?.id || '',
-          patient_id: formData.patient_id || undefined
-        })
+          patient_id: taskType === 'appointment' ? formData.patient_id : undefined
+        }
+        
+        const { error } = await createTask(taskData)
 
         if (error) {
           console.error('Error creating task:', error)
@@ -123,6 +144,20 @@ export const TaskForm: React.FC<TaskFormProps> = ({ task, onClose, rolesFilter, 
     })
   }
 
+  const handleTaskTypeChange = (type: 'general' | 'appointment') => {
+    setTaskType(type)
+    if (type === 'general') {
+      // Clear patient selection for general tasks
+      setFormData({
+        ...formData,
+        patient_id: ''
+      })
+    }
+  }
+
+  // Only show task type selection for volunteer tasks (when rolesFilter includes 'volunteer')
+  const showTaskTypeSelection = rolesFilter?.includes('volunteer') && !task
+
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
@@ -147,6 +182,44 @@ export const TaskForm: React.FC<TaskFormProps> = ({ task, onClose, rolesFilter, 
 
         <form onSubmit={handleSubmit} className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {showTaskTypeSelection && (
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Task Type *
+                </label>
+                <div className="flex space-x-4">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="taskType"
+                      value="general"
+                      checked={taskType === 'general'}
+                      onChange={() => handleTaskTypeChange('general')}
+                      className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                    />
+                    <span className="text-sm text-gray-700">General Task</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="taskType"
+                      value="appointment"
+                      checked={taskType === 'appointment'}
+                      onChange={() => handleTaskTypeChange('appointment')}
+                      className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                    />
+                    <span className="text-sm text-gray-700">Appointment</span>
+                  </label>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {taskType === 'appointment' 
+                    ? 'Appointments require a patient and date, and will appear in the volunteer\'s "Today\'s Appointments" tab.'
+                    : 'General tasks will appear in the volunteer\'s "Today\'s To-Do" tab when due today.'
+                  }
+                </p>
+              </div>
+            )}
+
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Task Title *
@@ -242,14 +315,16 @@ export const TaskForm: React.FC<TaskFormProps> = ({ task, onClose, rolesFilter, 
               </div>
             )}
 
-            <div>
+            <div className={taskType === 'general' ? 'opacity-50' : ''}>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Related Patient (Optional)
+                {taskType === 'appointment' ? 'Patient *' : 'Related Patient (Optional)'}
               </label>
               <select
                 name="patient_id"
                 value={formData.patient_id}
                 onChange={handleChange}
+                required={taskType === 'appointment'}
+                disabled={taskType === 'general'}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               >
                 <option value="">Select patient...</option>
@@ -259,19 +334,30 @@ export const TaskForm: React.FC<TaskFormProps> = ({ task, onClose, rolesFilter, 
                   </option>
                 ))}
               </select>
+              {taskType === 'general' && (
+                <p className="text-xs text-gray-500 mt-1">
+                  General tasks don't require a patient assignment
+                </p>
+              )}
             </div>
 
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Due Date (Optional)
+                {taskType === 'appointment' ? 'Appointment Date *' : 'Due Date (Optional)'}
               </label>
               <input
                 type="date"
                 name="due_date"
                 value={formData.due_date}
                 onChange={handleChange}
+                required={taskType === 'appointment'}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               />
+              {taskType === 'appointment' && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Appointment date is required and will appear in the volunteer's appointment schedule
+                </p>
+              )}
             </div>
           </div>
 
