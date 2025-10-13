@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, MapPin } from 'lucide-react'
 import { MapContainer, TileLayer, CircleMarker, Popup, Circle, useMap, Marker } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
-import { getLocations, getPatientProfiles } from '../../lib/dummyDatabase'
+import { getLocations, getPatientProfiles, getVolunteers } from '../../lib/dummyDatabase'
 import { useAuth } from '../../contexts/AuthContext'
 import L from 'leaflet'
 
@@ -36,6 +36,7 @@ export const MapPage: React.FC<MapPageProps> = ({ onBack }) => {
   const [geoError, setGeoError] = useState<string | null>(null)
   const [center, setCenter] = useState<[number, number]>(SALAYA)
   const [assignedPatients, setAssignedPatients] = useState<any[]>([])
+  const [mySubdistrict, setMySubdistrict] = useState<string>('')
 
   useEffect(() => {
     ;(async () => {
@@ -52,7 +53,19 @@ export const MapPage: React.FC<MapPageProps> = ({ onBack }) => {
       const mine = (data || []).filter((p: any) =>
         typeof p.assigned_vhv_name === 'string' && p.assigned_vhv_name.toLowerCase().includes(fullName.toLowerCase())
       )
-      setAssignedPatients(mine)
+      // Get volunteer sub-district from volunteer profile address
+      const vols = await getVolunteers()
+      const me = (vols.data || []).find((v: any) => v.user_id === user.id)
+      const extractSub = (addr?: string) => {
+        if (!addr) return ''
+        const parts = addr.split(',').map((s: string)=>s.trim()).filter(Boolean)
+        return parts.length >= 3 ? parts[parts.length - 3] : ''
+      }
+      const sub = extractSub(me?.address)
+      setMySubdistrict(sub)
+      // Filter assigned patients to same sub-district
+      const filteredMine = mine.filter((p: any) => extractSub(p.address) === sub)
+      setAssignedPatients(filteredMine)
     })()
   }, [user])
 
@@ -68,10 +81,16 @@ export const MapPage: React.FC<MapPageProps> = ({ onBack }) => {
   const filteredPatients = useMemo(() => {
     if (user?.role !== 'volunteer') return [] as any[]
     const origin = userPos || SALAYA
+    const extractSub = (addr?: string) => {
+      if (!addr) return ''
+      const parts = addr.split(',').map((s: string)=>s.trim()).filter(Boolean)
+      return parts.length >= 3 ? parts[parts.length - 3] : ''
+    }
     return (assignedPatients || [])
+      .filter((p: any) => extractSub(p.address) === mySubdistrict)
       .filter((p: any) => typeof p.lat === 'number' && typeof p.lng === 'number')
       .filter((p: any) => haversineKm(origin, [p.lat, p.lng]) <= radiusKm)
-  }, [assignedPatients, userPos, radiusKm, user])
+  }, [assignedPatients, mySubdistrict, userPos, radiusKm, user])
 
   const colorByType = (t: string) =>
     t === 'volunteer' ? '#22c55e' : t === 'center' ? '#0ea5e9' : '#ef4444'

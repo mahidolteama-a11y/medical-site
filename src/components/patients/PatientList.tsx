@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
-import { getPatientProfiles } from '../../lib/dummyDatabase'
+import { getPatientProfiles, getVolunteers } from '../../lib/dummyDatabase'
 import { PatientProfile } from '../../types'
 import { Plus, Search, User, Calendar, Phone, Eye } from 'lucide-react'
 import { PatientForm } from './PatientForm'
@@ -12,9 +12,24 @@ export const PatientList: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [editingPatient, setEditingPatient] = useState<PatientProfile | null>(null)
+  const [onlyAssigned, setOnlyAssigned] = useState(false)
+  const [myVolunteerName, setMyVolunteerName] = useState<string>('')
+  const [mySubdistrict, setMySubdistrict] = useState<string>('')
 
   useEffect(() => {
     fetchPatients()
+    // For volunteers, load their profile to filter by sub-district
+    ;(async () => {
+      if (user?.role !== 'volunteer') return
+      const { data } = await getVolunteers()
+      const mine = (data || []).find((v: any) => v.user_id === user.id)
+      if (mine) {
+        setMyVolunteerName(mine.user?.full_name || mine.name)
+        const parts = (mine.address || '').split(',').map((s: string) => s.trim()).filter(Boolean)
+        const sub = parts.length >= 3 ? parts[parts.length - 3] : ''
+        setMySubdistrict(sub)
+      }
+    })()
   }, [])
 
   const fetchPatients = async () => {
@@ -38,14 +53,30 @@ export const PatientList: React.FC = () => {
 
   const filteredPatients = useMemo(() => {
     const term = searchTerm.toLowerCase()
-    return patients.filter(patient =>
+    let list = patients
+
+    // For volunteers: filter by same sub-district
+    if (user?.role === 'volunteer' && mySubdistrict) {
+      const extractSub = (addr?: string) => {
+        if (!addr) return ''
+        const parts = addr.split(',').map(s => s.trim()).filter(Boolean)
+        return parts.length >= 3 ? parts[parts.length - 3] : ''
+      }
+      list = list.filter(p => extractSub(p.address) === mySubdistrict)
+    }
+
+    if (user?.role === 'volunteer' && onlyAssigned && myVolunteerName) {
+      list = list.filter(p => (p.assigned_vhv_name || '').toLowerCase().includes(myVolunteerName.toLowerCase()))
+    }
+
+    return list.filter(patient =>
       patient.name.toLowerCase().includes(term) ||
       patient.medical_record_number.toLowerCase().includes(term) ||
       patient.assigned_vhv_name?.toLowerCase().includes(term) ||
       patient.assigned_doctor?.toLowerCase().includes(term) ||
       patient.doctor_diagnosed.toLowerCase().includes(term)
     )
-  }, [patients, searchTerm])
+  }, [patients, searchTerm, user?.role, onlyAssigned, myVolunteerName, mySubdistrict])
 
   const [page, setPage] = useState(1)
   const pageSize = 10
@@ -81,8 +112,9 @@ export const PatientList: React.FC = () => {
   }
 
   const subArea = (p: PatientProfile) => {
-    // Best-effort: take the second-to-last part of the address as sub-area
+    // Best-effort: take the third-from-last part as Sub-District/Sub-Area (addressLine, subdistrict, district, province)
     const parts = (p.address || '').split(',').map(s => s.trim()).filter(Boolean)
+    if (parts.length >= 3) return parts[parts.length - 3]
     if (parts.length >= 2) return parts[parts.length - 2]
     if (parts.length >= 1) return parts[parts.length - 1]
     return ''
@@ -119,8 +151,9 @@ export const PatientList: React.FC = () => {
   }
 
   const isDoctor = user?.role === 'doctor'
+  const isVolunteer = user?.role === 'volunteer'
 
-  if (isDoctor) {
+  if (isDoctor || isVolunteer) {
     return (
       <div className="py-2">
         <div className="flex items-center justify-between mb-4">
@@ -134,14 +167,22 @@ export const PatientList: React.FC = () => {
               className="w-full pl-10 pr-4 py-3 rounded-full border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-          <div className="ml-3">
-            <button
-              onClick={() => setShowForm(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-sky-100 text-sky-700 hover:bg-sky-200 border border-sky-200"
-            >
-              <Plus className="w-4 h-4" />
-              <span>create new patient</span>
-            </button>
+          <div className="ml-3 flex items-center gap-3">
+            {isVolunteer && (
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input type="checkbox" checked={onlyAssigned} onChange={e=>setOnlyAssigned(e.target.checked)} />
+                Assigned to me
+              </label>
+            )}
+            {(user?.role === 'doctor' || user?.role === 'volunteer') && (
+              <button
+                onClick={() => setShowForm(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-sky-100 text-sky-700 hover:bg-sky-200 border border-sky-200"
+              >
+                <Plus className="w-4 h-4" />
+                <span>create new patient</span>
+              </button>
+            )}
           </div>
         </div>
 

@@ -92,10 +92,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, mob
     <div className={`h-full flex flex-col ${collapsed ? 'items-center' : ''}`}>
       {/* Brand */}
       <div className={`flex items-center ${collapsed ? 'justify-center' : 'justify-start'} h-16 px-3 border-b border-gray-200`}>
-        <div className="bg-blue-600 p-2 rounded-lg">
-          <Heart className="w-6 h-6 text-white" />
-        </div>
-        {!collapsed && <span className="ml-2 text-lg font-bold text-gray-900">HealthBridge</span>}
+        {collapsed ? (
+          <img src="/logo.png" alt="logo" className="h-8 object-contain" />
+        ) : (
+          <img src="/logo.png" alt="logo" className="h-9 object-contain" />
+        )}
       </div>
 
       {/* Nav */}

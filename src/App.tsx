@@ -14,6 +14,7 @@ import { MapPage } from './components/map/MapPage'
 import { DailyRecordList } from './components/records/DailyRecordList'
 import PatientAppointments from './components/appointments/PatientAppointments'
 import { VolunteerListPage } from './components/volunteers/VolunteerList'
+import { UserProfile } from './components/profile/UserProfile'
 
 function AppContent() {
   const { user, loading } = useAuth()
@@ -58,6 +59,8 @@ function AppContent() {
         return <DailyRecordList />
       case 'appointments':
         return user.role === 'patient' ? <PatientAppointments /> : <Dashboard />
+      case 'user-profile':
+        return <UserProfile />
       default:
         return <Dashboard />
     }

@@ -5,6 +5,7 @@ export interface DummyUser {
   full_name: string;
   role: 'doctor' | 'patient' | 'volunteer';
   created_at: string;
+  photo_url?: string;
 }
 
 export interface DummyPatientProfile {

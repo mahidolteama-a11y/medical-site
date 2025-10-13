@@ -4,6 +4,7 @@ export interface User {
   full_name: string;
   role: 'doctor' | 'patient' | 'volunteer';
   created_at: string;
+  photo_url?: string;
 }
 
 export interface PatientProfile {
@@ -52,6 +53,7 @@ export interface PatientProfile {
   pregnancy_details: string;
   smoker: boolean;
   doctors_note: string;
+  photo_url?: string;
   
   created_by: string;
   created_at: string;

@@ -1,6 +1,7 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
-import { Heart, LogOut, Menu } from 'lucide-react'
+import { Heart, LogOut, Menu, User as UserIcon } from 'lucide-react'
+import { getPatientProfileByUserId } from '../../lib/dummyDatabase'
 
 interface NavbarProps {
   currentView: string
@@ -8,8 +9,24 @@ interface NavbarProps {
   onMenuClick?: () => void
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
+export const Navbar: React.FC<NavbarProps> = ({ onMenuClick, onViewChange }) => {
   const { user, signOut } = useAuth()
+  const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined)
+
+  useEffect(() => {
+    let mounted = true
+    const load = async () => {
+      if (!user) return
+      // Prefer user.photo_url; for patients, try their profile photo
+      if (user.photo_url) { setAvatarUrl(user.photo_url); return }
+      if (user.role === 'patient') {
+        const { data } = await getPatientProfileByUserId(user.id)
+        if (mounted) setAvatarUrl((data as any)?.photo_url)
+      }
+    }
+    load()
+    return () => { mounted = false }
+  }, [user])
 
   const handleSignOut = async () => {
     await signOut()
@@ -36,15 +53,23 @@ export const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
             <button className="md:hidden p-2 rounded-lg hover:bg-gray-100" onClick={onMenuClick} aria-label="Open menu">
               <Menu className="w-5 h-5" />
             </button>
-            <div className="flex items-center space-x-2">
-              <div className="bg-blue-600 p-2 rounded-lg">
-                <Heart className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-xl font-bold text-gray-900">MedConnect</span>
+            <div className="flex items-center">
+              <img src="/logo.png" alt="Logo" className="h-8 md:h-9 object-contain" />
             </div>
           </div>
 
           <div className="flex items-center space-x-4">
+            <button
+              onClick={() => onViewChange('user-profile')}
+              className="w-9 h-9 rounded-full overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center hover:ring-2 hover:ring-blue-500"
+              title="My Profile"
+            >
+              {avatarUrl ? (
+                <img src={avatarUrl} className="w-full h-full object-cover" />
+              ) : (
+                <UserIcon className="w-5 h-5 text-gray-500" />
+              )}
+            </button>
             <div className="flex items-center space-x-3">
               <span className="text-sm font-medium text-gray-700">{user?.full_name}</span>
               <span className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleColor(user?.role || '')}`}>

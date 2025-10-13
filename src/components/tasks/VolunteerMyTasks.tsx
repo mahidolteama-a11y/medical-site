@@ -32,8 +32,31 @@ const VolunteerMyTasks: React.FC = () => {
     setLoading(false)
   }
 
-  const appointments = useMemo(() => tasks.filter(t => isToday(t.due_date) && !!t.patient), [tasks])
-  const todos = useMemo(() => tasks.filter(t => isToday(t.due_date) && !t.patient), [tasks])
+  const todayAppointments = useMemo(() => tasks.filter(t => isToday(t.due_date) && !!t.patient), [tasks])
+  const todayTodos = useMemo(() => tasks.filter(t => isToday(t.due_date) && !t.patient), [tasks])
+
+  const isFuture = (dateStr?: string) => {
+    if (!dateStr) return false
+    const d = new Date(dateStr)
+    const now = new Date()
+    // Compare ignoring time
+    return d.setHours(0,0,0,0) > now.setHours(0,0,0,0)
+  }
+  const isPast = (dateStr?: string) => {
+    if (!dateStr) return false
+    const d = new Date(dateStr)
+    const now = new Date()
+    return d.setHours(0,0,0,0) < now.setHours(0,0,0,0)
+  }
+
+  // Additional groups per tab
+  const upcomingAppointments = useMemo(() => tasks.filter(t => !!t.patient && isFuture(t.due_date) && t.status !== 'completed' && t.status !== 'cancelled'), [tasks])
+  const overdueAppointments = useMemo(() => tasks.filter(t => !!t.patient && isPast(t.due_date) && t.status !== 'completed' && t.status !== 'cancelled'), [tasks])
+  const finishedAppointments = useMemo(() => tasks.filter(t => !!t.patient && t.status === 'completed'), [tasks])
+
+  const upcomingTodos = useMemo(() => tasks.filter(t => !t.patient && isFuture(t.due_date) && t.status !== 'completed' && t.status !== 'cancelled'), [tasks])
+  const overdueTodos = useMemo(() => tasks.filter(t => !t.patient && isPast(t.due_date) && t.status !== 'completed' && t.status !== 'cancelled'), [tasks])
+  const finishedTodos = useMemo(() => tasks.filter(t => !t.patient && t.status === 'completed'), [tasks])
 
   const handleStart = async (task: Task) => {
     await updateTask(task.id, { status: 'in_progress' })
@@ -55,7 +78,35 @@ const VolunteerMyTasks: React.FC = () => {
     fetchTasks()
   }
 
-  const list = tab === 'appointments' ? appointments : todos
+  const list = tab === 'appointments' ? todayAppointments : todayTodos
+
+  const Section: React.FC<{ title: string; items: Task[] }> = ({ title, items }) => (
+    <div className="mt-8">
+      <h2 className="text-lg font-semibold text-gray-900 mb-3">{title}</h2>
+      {items.length === 0 ? (
+        <div className="text-gray-500 text-sm">No items.</div>
+      ) : (
+        <div className="space-y-3">
+          {items.map(task => (
+            <div key={task.id} className="bg-white rounded-xl border border-gray-200 p-4">
+              <div className="flex items-start justify-between">
+                <div className="text-sm">
+                  <div className="font-medium text-gray-900">{task.title}</div>
+                  <div className="text-gray-600 mt-1">{task.description}</div>
+                  <div className="text-gray-700 mt-2">Due {task.due_date ? new Date(task.due_date).toLocaleDateString() : '—'} {task.patient && <span>• Patient: {task.patient.name}</span>}</div>
+                </div>
+                <div className="flex gap-2">
+                  {task.status !== 'completed' && task.status !== 'cancelled' && (
+                    <button onClick={() => openReport(task)} className="px-3 py-1 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700">Open</button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 
   if (loading) {
     return (
@@ -117,6 +168,21 @@ const VolunteerMyTasks: React.FC = () => {
             </div>
           ))}
         </div>
+      )}
+
+      {/* Extra sections: Upcoming, Overdue, Finished */}
+      {tab === 'appointments' ? (
+        <>
+          <Section title="Upcoming Appointments" items={upcomingAppointments} />
+          <Section title="Overdue Appointments" items={overdueAppointments} />
+          <Section title="Finished Appointments" items={finishedAppointments} />
+        </>
+      ) : (
+        <>
+          <Section title="Upcoming To‑Do" items={upcomingTodos} />
+          <Section title="Overdue To‑Do" items={overdueTodos} />
+          <Section title="Finished To‑Do" items={finishedTodos} />
+        </>
       )}
 
       <SimpleModal open={!!reportTask} title={reportTask ? `Complete Task: ${reportTask.title}` : ''} onClose={() => setReportTask(null)}>

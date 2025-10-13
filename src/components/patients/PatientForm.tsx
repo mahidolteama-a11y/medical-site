@@ -58,6 +58,7 @@ export const PatientForm: React.FC<PatientFormProps> = ({ patient, onClose }) =>
     pregnancy_details: '',
     smoker: false,
     doctors_note: '',
+    photo_url: '' as any,
     // geo
     lat: undefined as number | undefined,
     lng: undefined as number | undefined,
@@ -189,6 +190,7 @@ export const PatientForm: React.FC<PatientFormProps> = ({ patient, onClose }) =>
         doctors_note: formData.doctors_note,
         lat: formData.lat,
         lng: formData.lng,
+        photo_url: (formData as any).photo_url,
       }
 
       if (patient) {
@@ -256,7 +258,7 @@ export const PatientForm: React.FC<PatientFormProps> = ({ patient, onClose }) =>
     }
   }
 
-  const isReadOnly = user?.role === 'patient' && patient
+  const isReadOnly = false
 
   // Map helpers
   const defaultCenter: [number, number] = useMemo(() => {
@@ -394,6 +396,21 @@ export const PatientForm: React.FC<PatientFormProps> = ({ patient, onClose }) =>
               <div className="md:col-span-2 lg:col-span-3">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
                 <input type="text" name="addressLine" placeholder="House number, street, village" value={formData.addressLine} onChange={handleChange} readOnly={isReadOnly} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50" />
+              </div>
+
+              {/* Profile photo for patient */}
+              <div className="md:col-span-2 lg:col-span-3">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Profile Picture</label>
+                <div className="flex items-center gap-3">
+                  <input type="file" accept="image/*" onChange={(e)=>{
+                    const f = e.target.files?.[0]; if (!f) return; const reader = new FileReader(); reader.onload = ()=> setFormData(prev=>({ ...prev, photo_url: String(reader.result) })); reader.readAsDataURL(f)
+                  }} disabled={isReadOnly} />
+                  <span className="text-sm text-gray-500">or</span>
+                  <input type="text" name="photo_url" placeholder="Image URL" value={(formData as any).photo_url || ''} onChange={handleChange} readOnly={isReadOnly} className="flex-1 px-3 py-2 border rounded" />
+                </div>
+                {(formData as any).photo_url && (
+                  <img src={(formData as any).photo_url} alt="preview" className="mt-2 w-20 h-20 rounded-full object-cover" />
+                )}
               </div>
 
               <div className="md:col-span-2 lg:col-span-3">

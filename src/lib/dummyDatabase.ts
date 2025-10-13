@@ -327,6 +327,16 @@ export const createVolunteerUser = async (email: string, fullName: string) => {
   return { data: newUser, error: null };
 };
 
+// Update user profile (e.g., name, photo)
+export const updateUserById = async (id: string, updates: Partial<DummyUser>) => {
+  await new Promise(resolve => setTimeout(resolve, 150));
+  const idx = persistentUsers.findIndex(u => u.id === id)
+  if (idx === -1) return { data: null, error: { message: 'User not found' } }
+  persistentUsers[idx] = { ...persistentUsers[idx], ...updates }
+  saveToStorage('dummyUsers', persistentUsers)
+  return { data: persistentUsers[idx], error: null }
+}
+
 // Locations Operations
 export const getLocations = async () => {
   await new Promise(resolve => setTimeout(resolve, 200));
