@@ -85,6 +85,11 @@ export const MapAreaDrawing: React.FC<MapAreaDrawingProps> = ({ onClose, onAreaC
       return;
     }
 
+    if (!user?.id) {
+      alert('User authentication required to create an area');
+      return;
+    }
+
     const geometry = {
       type: 'Polygon' as const,
       coordinates: [[...currentPolygon.map(p => [p[0], p[1]]), currentPolygon[0]].map(p => [p[0], p[1]])]
@@ -94,7 +99,7 @@ export const MapAreaDrawing: React.FC<MapAreaDrawingProps> = ({ onClose, onAreaC
       name: newAreaName,
       color: newAreaColor,
       geometry,
-      created_by: user?.id || ''
+      created_by: user.id
     });
 
     if (error) {

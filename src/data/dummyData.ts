@@ -148,7 +148,7 @@ const datePlus = (days: number) => {
 
 // Hoisted helpers (used by seeded data below)
 export function generateId() {
-  return 'id-' + Math.random().toString(36).substr(2, 9);
+  return crypto.randomUUID();
 }
 
 export function getCurrentTimestamp() {
@@ -158,7 +158,7 @@ export function getCurrentTimestamp() {
 // Dummy Users
 export const dummyUsers: DummyUser[] = [
   {
-    id: 'user-1',
+    id: '550e8400-e29b-41d4-a716-446655440001',
     email: 'dr.smith@hospital.com',
     password: 'password321',
     full_name: 'Dr. Sarah Smith',
@@ -166,7 +166,7 @@ export const dummyUsers: DummyUser[] = [
     created_at: '2024-01-15T08:00:00Z'
   },
   {
-    id: 'user-2',
+    id: '550e8400-e29b-41d4-a716-446655440002',
     email: 'john.doe@email.com',
     password: 'password321',
     full_name: 'John Doe',
@@ -174,7 +174,7 @@ export const dummyUsers: DummyUser[] = [
     created_at: '2024-01-16T09:30:00Z'
   },
   {
-    id: 'user-3',
+    id: '550e8400-e29b-41d4-a716-446655440003',
     email: 'volunteer@hospital.com',
     password: 'password321',
     full_name: 'Maria Garcia',
@@ -182,7 +182,7 @@ export const dummyUsers: DummyUser[] = [
     created_at: '2024-01-17T10:15:00Z'
   },
   {
-    id: 'user-4',
+    id: '550e8400-e29b-41d4-a716-446655440004',
     email: 'jane.wilson@email.com',
     password: 'password321',
     full_name: 'Jane Wilson',
@@ -190,7 +190,7 @@ export const dummyUsers: DummyUser[] = [
     created_at: '2024-01-18T11:00:00Z'
   },
   {
-    id: 'user-5',
+    id: '550e8400-e29b-41d4-a716-446655440005',
     email: 'dr.johnson@hospital.com',
     password: 'password321',
     full_name: 'Dr. Michael Johnson',
