@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState, useCallback } from 'react'
 import { ArrowLeft, MapPin, Settings } from 'lucide-react'
 import { MapContainer, TileLayer, CircleMarker, Popup, Circle, useMap, Marker, Polygon } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -52,12 +52,14 @@ export const MapPage: React.FC<MapPageProps> = ({ onBack }) => {
     })()
   }, [])
 
-  useEffect(() => {
-    ;(async () => {
-      const { data } = await getAllMapAreas()
-      setAreas(data || [])
-    })()
+  const loadAreas = useCallback(async () => {
+    const { data } = await getAllMapAreas()
+    setAreas(data || [])
   }, [])
+
+  useEffect(() => {
+    loadAreas()
+  }, [loadAreas])
 
   useEffect(() => {
     ;(async () => {
@@ -151,7 +153,7 @@ export const MapPage: React.FC<MapPageProps> = ({ onBack }) => {
   }
 
   if (showAreaManager) {
-    return <MapAreaDrawing onClose={() => setShowAreaManager(false)} />
+    return <MapAreaDrawing onClose={() => setShowAreaManager(false)} onAreaChanged={loadAreas} />
   }
 
   return (
@@ -216,24 +218,22 @@ export const MapPage: React.FC<MapPageProps> = ({ onBack }) => {
               {showAreas && areas.map(area => {
                 if (!area.geometry?.coordinates?.[0]) return null
                 const coords = area.geometry.coordinates[0].map(c => [c[0], c[1]] as [number, number])
-                const centroid = calculatePolygonCentroid(area.geometry.coordinates[0])
 
                 return (
-                  <React.Fragment key={area.id}>
-                    <Polygon
-                      positions={coords}
-                      pathOptions={{
-                        color: area.color,
-                        fillColor: area.color,
-                        fillOpacity: 0.15,
-                        weight: 2
-                      }}
-                    >
-                      <Popup>
-                        <div className="font-semibold">{area.name}</div>
-                      </Popup>
-                    </Polygon>
-                  </React.Fragment>
+                  <Polygon
+                    key={`area-${area.id}`}
+                    positions={coords}
+                    pathOptions={{
+                      color: area.color,
+                      fillColor: area.color,
+                      fillOpacity: 0.15,
+                      weight: 2
+                    }}
+                  >
+                    <Popup>
+                      <div className="font-semibold">{area.name}</div>
+                    </Popup>
+                  </Polygon>
                 )
               })}
 

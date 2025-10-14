@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { MapContainer, TileLayer, Polygon, Popup, useMap, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Polygon, Popup, useMap, useMapEvents, CircleMarker } from 'react-leaflet';
 import { Save, Trash2, Edit3, X, Plus } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -10,6 +10,7 @@ import { calculatePolygonCentroid } from '../../lib/areaAssignment';
 
 interface MapAreaDrawingProps {
   onClose: () => void;
+  onAreaChanged?: () => void;
 }
 
 const DEFAULT_COLORS = [
@@ -17,7 +18,7 @@ const DEFAULT_COLORS = [
   '#EC4899', '#14B8A6', '#F97316', '#6366F1', '#84CC16'
 ];
 
-export const MapAreaDrawing: React.FC<MapAreaDrawingProps> = ({ onClose }) => {
+export const MapAreaDrawing: React.FC<MapAreaDrawingProps> = ({ onClose, onAreaChanged }) => {
   const { user } = useAuth();
   const [areas, setAreas] = useState<MapArea[]>([]);
   const [loading, setLoading] = useState(true);
@@ -107,7 +108,8 @@ export const MapAreaDrawing: React.FC<MapAreaDrawingProps> = ({ onClose }) => {
     setCurrentPolygon([]);
     setNewAreaName('');
     setNewAreaColor(DEFAULT_COLORS[0]);
-    loadAreas();
+    await loadAreas();
+    if (onAreaChanged) onAreaChanged();
   };
 
   const handleDeleteArea = async (areaId: string) => {
@@ -124,7 +126,8 @@ export const MapAreaDrawing: React.FC<MapAreaDrawingProps> = ({ onClose }) => {
     }
 
     setSelectedArea(null);
-    loadAreas();
+    await loadAreas();
+    if (onAreaChanged) onAreaChanged();
   };
 
   const handleUpdateAreaColor = async (areaId: string, color: string) => {
@@ -135,7 +138,8 @@ export const MapAreaDrawing: React.FC<MapAreaDrawingProps> = ({ onClose }) => {
       return;
     }
 
-    loadAreas();
+    await loadAreas();
+    if (onAreaChanged) onAreaChanged();
   };
 
   const DrawingHandler: React.FC = () => {
@@ -228,35 +232,33 @@ export const MapAreaDrawing: React.FC<MapAreaDrawingProps> = ({ onClose }) => {
                   {areas.map(area => {
                     if (!area.geometry?.coordinates?.[0]) return null;
                     const coords = area.geometry.coordinates[0].map(c => [c[0], c[1]] as [number, number]);
-                    const centroid = calculatePolygonCentroid(area.geometry.coordinates[0]);
 
                     return (
-                      <React.Fragment key={area.id}>
-                        <Polygon
-                          positions={coords}
-                          pathOptions={{
-                            color: area.color,
-                            fillColor: area.color,
-                            fillOpacity: selectedArea?.id === area.id ? 0.4 : 0.2,
-                            weight: selectedArea?.id === area.id ? 3 : 2
-                          }}
-                          eventHandlers={{
-                            click: () => setSelectedArea(area)
-                          }}
-                        >
-                          <Popup>
-                            <div className="p-2">
-                              <div className="font-semibold text-lg mb-2">{area.name}</div>
-                              {areaStats && selectedArea?.id === area.id && (
-                                <div className="text-sm space-y-1">
-                                  <div>Volunteers: {areaStats.volunteerCount}</div>
-                                  <div>Patients: {areaStats.patientCount}</div>
-                                </div>
-                              )}
-                            </div>
-                          </Popup>
-                        </Polygon>
-                      </React.Fragment>
+                      <Polygon
+                        key={`area-polygon-${area.id}`}
+                        positions={coords}
+                        pathOptions={{
+                          color: area.color,
+                          fillColor: area.color,
+                          fillOpacity: selectedArea?.id === area.id ? 0.4 : 0.2,
+                          weight: selectedArea?.id === area.id ? 3 : 2
+                        }}
+                        eventHandlers={{
+                          click: () => setSelectedArea(area)
+                        }}
+                      >
+                        <Popup>
+                          <div className="p-2">
+                            <div className="font-semibold text-lg mb-2">{area.name}</div>
+                            {areaStats && selectedArea?.id === area.id && (
+                              <div className="text-sm space-y-1">
+                                <div>Volunteers: {areaStats.volunteerCount}</div>
+                                <div>Patients: {areaStats.patientCount}</div>
+                              </div>
+                            )}
+                          </div>
+                        </Popup>
+                      </Polygon>
                     );
                   })}
 
@@ -275,11 +277,11 @@ export const MapAreaDrawing: React.FC<MapAreaDrawingProps> = ({ onClose }) => {
                         />
                       )}
                       {currentPolygon.map((point, idx) => (
-                        <L.Circle
-                          key={idx}
+                        <CircleMarker
+                          key={`drawing-point-${idx}`}
                           center={point}
-                          radius={20}
-                          pathOptions={{ color: newAreaColor, fillColor: newAreaColor, fillOpacity: 0.8 }}
+                          radius={8}
+                          pathOptions={{ color: newAreaColor, fillColor: newAreaColor, fillOpacity: 0.8, weight: 2 }}
                         />
                       ))}
                     </>
