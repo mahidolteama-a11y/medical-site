@@ -1,4 +1,5 @@
 import { dummyUsers, DummyUser, generateId, getCurrentTimestamp } from '../data/dummyData';
+import { isValidUUID } from './sessionValidator';
 
 // Simulate local storage for session management
 const SESSION_KEY = 'medical_portal_session';
@@ -111,9 +112,16 @@ export const getCurrentSession = (): AuthSession | null => {
 
   try {
     const session: AuthSession = JSON.parse(sessionData);
-    
+
     // Check if session is expired
     if (new Date(session.expires_at) < new Date()) {
+      localStorage.removeItem(SESSION_KEY);
+      return null;
+    }
+
+    // Validate user ID is a proper UUID
+    if (!isValidUUID(session.user.id)) {
+      console.warn('Invalid user ID format detected. Clearing session. Please log in again.');
       localStorage.removeItem(SESSION_KEY);
       return null;
     }

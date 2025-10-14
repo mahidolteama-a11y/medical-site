@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useAuth, AuthProvider } from './contexts/AuthContext'
 import { AuthForm } from './components/auth/AuthForm'
 import { Navbar } from './components/layout/Navbar'
@@ -15,11 +15,16 @@ import { DailyRecordList } from './components/records/DailyRecordList'
 import PatientAppointments from './components/appointments/PatientAppointments'
 import { VolunteerListPage } from './components/volunteers/VolunteerList'
 import { UserProfile } from './components/profile/UserProfile'
+import { clearInvalidSession } from './lib/sessionValidator'
 
 function AppContent() {
   const { user, loading } = useAuth()
   const [currentView, setCurrentView] = useState('dashboard')
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+
+  useEffect(() => {
+    clearInvalidSession();
+  }, []);
 
   if (loading) {
     return (
