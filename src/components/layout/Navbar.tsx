@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
-import { Heart, LogOut, Menu, User as UserIcon } from 'lucide-react'
+import { LogOut, Menu, User as UserIcon } from 'lucide-react'
 import { getPatientProfileByUserId } from '../../lib/dummyDatabase'
 
 interface NavbarProps {
@@ -53,9 +53,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onMenuClick, onViewChange }) => 
             <button className="md:hidden p-2 rounded-lg hover:bg-gray-100" onClick={onMenuClick} aria-label="Open menu">
               <Menu className="w-5 h-5" />
             </button>
-            <div className="flex items-center">
-              <img src="/logo.png" alt="Logo" className="h-8 md:h-9 object-contain" />
-            </div>
           </div>
 
           <div className="flex items-center space-x-4">
