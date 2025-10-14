@@ -1,10 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, MapPin } from 'lucide-react'
-import { MapContainer, TileLayer, CircleMarker, Popup, Circle, useMap, Marker } from 'react-leaflet'
+import { ArrowLeft, MapPin, Settings } from 'lucide-react'
+import { MapContainer, TileLayer, CircleMarker, Popup, Circle, useMap, Marker, Polygon } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import { getLocations, getPatientProfiles, getVolunteers } from '../../lib/dummyDatabase'
 import { useAuth } from '../../contexts/AuthContext'
 import L from 'leaflet'
+import { getAllMapAreas } from '../../lib/mapAreasService'
+import { MapArea } from '../../types'
+import { MapAreaDrawing } from './MapAreaDrawing'
+import { calculatePolygonCentroid } from '../../lib/areaAssignment'
 
 interface MapPageProps {
   onBack: () => void
@@ -37,11 +41,21 @@ export const MapPage: React.FC<MapPageProps> = ({ onBack }) => {
   const [center, setCenter] = useState<[number, number]>(SALAYA)
   const [assignedPatients, setAssignedPatients] = useState<any[]>([])
   const [mySubdistrict, setMySubdistrict] = useState<string>('')
+  const [areas, setAreas] = useState<MapArea[]>([])
+  const [showAreas, setShowAreas] = useState(true)
+  const [showAreaManager, setShowAreaManager] = useState(false)
 
   useEffect(() => {
     ;(async () => {
       const { data } = await getLocations()
       setLocations(data || [])
+    })()
+  }, [])
+
+  useEffect(() => {
+    ;(async () => {
+      const { data } = await getAllMapAreas()
+      setAreas(data || [])
     })()
   }, [])
 
@@ -136,6 +150,10 @@ export const MapPage: React.FC<MapPageProps> = ({ onBack }) => {
     return null
   }
 
+  if (showAreaManager) {
+    return <MapAreaDrawing onClose={() => setShowAreaManager(false)} />
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
@@ -170,6 +188,15 @@ export const MapPage: React.FC<MapPageProps> = ({ onBack }) => {
               </select>
               <button onClick={requestMyLocation} className="px-3 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50">Use My Location</button>
               <button onClick={resetToSalaya} className="px-3 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50">Reset</button>
+              <button onClick={() => setShowAreas(!showAreas)} className={`px-3 py-2 text-sm rounded-lg border ${showAreas ? 'bg-blue-50 border-blue-300 text-blue-700' : 'border-gray-300 hover:bg-gray-50'}`}>
+                {showAreas ? 'Hide' : 'Show'} Areas
+              </button>
+              {user?.role === 'doctor' && (
+                <button onClick={() => setShowAreaManager(true)} className="px-3 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50 inline-flex items-center gap-2">
+                  <Settings className="w-4 h-4" />
+                  Manage Areas
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -184,6 +211,32 @@ export const MapPage: React.FC<MapPageProps> = ({ onBack }) => {
               />
               {/* Radius circle from origin */}
               <Circle center={center} radius={radiusKm * 1000} pathOptions={{ color: '#0ea5e9', weight: 1 }} />
+
+              {/* Display map areas */}
+              {showAreas && areas.map(area => {
+                if (!area.geometry?.coordinates?.[0]) return null
+                const coords = area.geometry.coordinates[0].map(c => [c[0], c[1]] as [number, number])
+                const centroid = calculatePolygonCentroid(area.geometry.coordinates[0])
+
+                return (
+                  <React.Fragment key={area.id}>
+                    <Polygon
+                      positions={coords}
+                      pathOptions={{
+                        color: area.color,
+                        fillColor: area.color,
+                        fillOpacity: 0.15,
+                        weight: 2
+                      }}
+                    >
+                      <Popup>
+                        <div className="font-semibold">{area.name}</div>
+                      </Popup>
+                    </Polygon>
+                  </React.Fragment>
+                )
+              })}
+
               {/* Show current user location if available */}
               {userPos && (
                 <Marker position={userPos} icon={myLocationIcon}>

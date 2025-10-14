@@ -25,7 +25,10 @@ export interface PatientProfile {
   // Geolocation (optional)
   lat?: number;
   lng?: number;
-  
+  // Area assignment
+  area_id?: string;
+  area_name?: string;
+
   // Medical Information
   patient_categories: {
     critical: boolean;
@@ -54,11 +57,12 @@ export interface PatientProfile {
   smoker: boolean;
   doctors_note: string;
   photo_url?: string;
-  
+
   created_by: string;
   created_at: string;
   updated_at: string;
   created_by_user?: User;
+  area?: MapArea;
 }
 
 export interface Message {
@@ -159,7 +163,23 @@ export interface VolunteerProfile {
   lng?: number;
   dob?: string; // YYYY-MM-DD
   photo_url?: string; // data URL or external link
+  area_id?: string;
+  area_name?: string;
   created_at: string;
   updated_at: string;
   user?: User;
+  area?: MapArea;
+}
+
+export interface MapArea {
+  id: string;
+  name: string;
+  color: string;
+  geometry: {
+    type: 'Polygon';
+    coordinates: number[][][];
+  };
+  created_by: string;
+  created_at: string;
+  updated_at: string;
 }
