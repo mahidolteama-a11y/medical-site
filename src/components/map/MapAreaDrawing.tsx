@@ -7,7 +7,6 @@ import { MapArea } from '../../types';
 import { getAllMapAreas, createMapArea, updateMapArea, deleteMapArea, getAreaStatistics } from '../../lib/mapAreasService';
 import { useAuth } from '../../contexts/AuthContext';
 import { calculatePolygonCentroid } from '../../lib/areaAssignment';
-import { isValidUUID } from '../../lib/sessionValidator';
 
 interface MapAreaDrawingProps {
   onClose: () => void;
@@ -86,16 +85,6 @@ export const MapAreaDrawing: React.FC<MapAreaDrawingProps> = ({ onClose, onAreaC
       return;
     }
 
-    if (!user?.id) {
-      alert('User authentication required to create an area');
-      return;
-    }
-
-    if (!isValidUUID(user.id)) {
-      alert('Invalid user session detected. Please log out and log back in to continue.');
-      return;
-    }
-
     const geometry = {
       type: 'Polygon' as const,
       coordinates: [[...currentPolygon.map(p => [p[0], p[1]]), currentPolygon[0]].map(p => [p[0], p[1]])]
@@ -105,7 +94,7 @@ export const MapAreaDrawing: React.FC<MapAreaDrawingProps> = ({ onClose, onAreaC
       name: newAreaName,
       color: newAreaColor,
       geometry,
-      created_by: user.id
+      created_by: user?.id || null
     });
 
     if (error) {

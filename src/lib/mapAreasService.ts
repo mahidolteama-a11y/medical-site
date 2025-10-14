@@ -1,6 +1,5 @@
 import { supabase } from './supabase';
 import { MapArea } from '../types';
-import { isValidUUID } from './sessionValidator';
 
 export const getAllMapAreas = async () => {
   const { data, error } = await supabase
@@ -22,16 +21,6 @@ export const getMapAreaById = async (id: string) => {
 };
 
 export const createMapArea = async (area: Omit<MapArea, 'id' | 'created_at' | 'updated_at'>) => {
-  if (!isValidUUID(area.created_by)) {
-    return {
-      data: null,
-      error: {
-        message: 'Invalid user ID format. Please log out and log back in.',
-        code: 'INVALID_UUID'
-      }
-    };
-  }
-
   const { data, error } = await supabase
     .from('map_areas')
     .insert([area])
