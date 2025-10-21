@@ -287,23 +287,26 @@ export const TaskForm: React.FC<TaskFormProps> = ({ task, onClose, rolesFilter, 
               </select>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Status *
-              </label>
-              <select
-                name="status"
-                required
-                value={formData.status}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-              >
-                <option value="pending">Pending</option>
-                <option value="in_progress">In Progress</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-            </div>
+            {/* Hide Status when creating volunteer tasks (defaults to pending) */}
+            {(!(rolesFilter?.includes('volunteer')) || !!task) && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Status *
+                </label>
+                <select
+                  name="status"
+                  required
+                  value={formData.status}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                >
+                  <option value="pending">Pending</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="completed">Completed</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+            )}
 
             {/* Patient first */}
             <div className={taskType === 'general' ? 'opacity-50' : ''}>
@@ -353,20 +356,22 @@ export const TaskForm: React.FC<TaskFormProps> = ({ task, onClose, rolesFilter, 
                 >
                   <option value="">Select user...</option>
                   {(() => {
-                    // For appointment tasks, limit to volunteers in same sub-area as the selected patient
-                    const extractSub = (addr?: string) => {
-                      if (!addr) return ''
-                      const parts = addr.split(',').map(s => s.trim()).filter(Boolean)
-                      return parts.length >= 3 ? parts[parts.length - 3].toLowerCase() : ''
-                    }
+                    // Show only volunteers from the same area_name as the selected patient (if any)
                     let options = users
-                    if (rolesFilter?.includes('volunteer') && taskType === 'appointment' && formData.patient_id) {
-                      const patient = patients.find(p => p.id === formData.patient_id)
-                      const pSub = extractSub(patient?.address)
-                      const allowedUserIds = volunteers
-                        .filter((v: any) => extractSub(v.address) === pSub)
-                        .map((v: any) => v.user_id)
-                      options = users.filter(u => u.role === 'volunteer' && allowedUserIds.includes(u.id))
+                    if (rolesFilter?.includes('volunteer')) {
+                      let targetArea = ''
+                      if (formData.patient_id) {
+                        const patient = patients.find(p => p.id === formData.patient_id)
+                        targetArea = (patient?.area_name || '').toLowerCase()
+                      }
+                      if (targetArea) {
+                        const allowedUserIds = volunteers
+                          .filter((v: any) => (v.area_name || '').toLowerCase() === targetArea)
+                          .map((v: any) => v.user_id)
+                        options = users.filter(u => u.role === 'volunteer' && allowedUserIds.includes(u.id))
+                      } else {
+                        options = users.filter(u => u.role === 'volunteer')
+                      }
                     }
                     return options.map(u => (
                       <option key={u.id} value={u.id}>

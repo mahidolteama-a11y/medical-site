@@ -46,11 +46,9 @@ export const AuthForm: React.FC = () => {
         <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
           <div className="text-center mb-6">
             <div className="flex justify-center mb-3">
-              <div className="bg-blue-600 p-3 rounded-full">
-                <Heart className="w-8 h-8 text-white" />
-              </div>
+              <img src="/logo.png" alt="Health Bride" className="h-12" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">MedConnect Patient Portal</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Health Bride Patient Portal</h1>
             <p className="text-gray-600 mt-1">Access with your MRN or email</p>
           </div>
           <PatientAccess />
@@ -72,11 +70,9 @@ export const AuthForm: React.FC = () => {
         <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
           <div className="text-center mb-6">
             <div className="flex justify-center mb-3">
-              <div className="bg-emerald-600 p-3 rounded-full">
-                <Heart className="w-8 h-8 text-white" />
-              </div>
+              <img src="/logo.png" alt="Health Bride" className="h-12" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">MedConnect Volunteer Portal</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Health Bride Volunteer Portal</h1>
             <p className="text-gray-600 mt-1">Access with Volunteer ID or email</p>
           </div>
           <VolunteerAccess />
@@ -97,11 +93,9 @@ export const AuthForm: React.FC = () => {
       <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <div className="bg-blue-600 p-3 rounded-full">
-              <Heart className="w-8 h-8 text-white" />
-            </div>
+            <img src="/logo.png" alt="Health Bride" className="h-12" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">MedConnect Portal</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Health Bride Portal</h1>
           <p className="text-gray-600 mt-2">
             {isLogin ? 'Sign in to your account' : 'Create your account'}
           </p>

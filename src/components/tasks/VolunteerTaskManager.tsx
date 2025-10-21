@@ -4,6 +4,7 @@ import { getTasks, updateTask, deleteTask } from '../../lib/dummyDatabase'
 import { Task } from '../../types'
 import { Plus, Search, CheckCircle, Clock, AlertTriangle, User, Calendar, Trash2, Edit } from 'lucide-react'
 import { TaskForm } from './TaskForm'
+import SimpleModal from '../common/SimpleModal'
 
 const VolunteerTaskManager: React.FC = () => {
   const { user } = useAuth()
@@ -14,6 +15,7 @@ const VolunteerTaskManager: React.FC = () => {
   const [priorityFilter, setPriorityFilter] = useState<string>('all')
   const [showForm, setShowForm] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
+  const [reviewTask, setReviewTask] = useState<Task | null>(null)
 
   useEffect(() => {
     fetchTasks()
@@ -177,6 +179,11 @@ const VolunteerTaskManager: React.FC = () => {
                 <button onClick={() => handleDelete(task.id)} className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all" title="Delete Task">
                   <Trash2 className="w-4 h-4" />
                 </button>
+                {(task.report || (task.form_responses && Object.keys(task.form_responses).length > 0)) && (
+                  <button onClick={() => setReviewTask(task)} className="p-2 text-gray-500 hover:text-green-700 hover:bg-green-50 rounded-lg transition-all" title="Review Submission">
+                    <CheckCircle className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             </div>
 
@@ -236,9 +243,52 @@ const VolunteerTaskManager: React.FC = () => {
           <p className="text-gray-500">No volunteer tasks found.</p>
         </div>
       )}
+      {/* Review Modal */}
+      <SimpleModal open={!!reviewTask} title={reviewTask ? `Review Submission: ${reviewTask.title}` : ''} onClose={() => setReviewTask(null)}>
+        {reviewTask ? (
+          <div className="space-y-4 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="text-gray-700">Volunteer: <span className="font-medium">{reviewTask.assigned_to_user?.full_name}</span></div>
+              {reviewTask.patient && (
+                <div className="text-gray-700">Patient: <span className="font-medium">{reviewTask.patient.name}</span></div>
+              )}
+              {reviewTask.due_date && (
+                <div className="text-gray-700">Due: <span className="font-medium">{new Date(reviewTask.due_date).toLocaleDateString()}</span></div>
+              )}
+              <div className="text-gray-700">Status: <span className="font-medium capitalize">{reviewTask.status.replace('_',' ')}</span></div>
+            </div>
+
+            {reviewTask.report ? (
+              <div className="bg-gray-50 border border-gray-200 rounded p-3">
+                <div className="text-xs text-gray-500 mb-1">Volunteer Report</div>
+                <div className="whitespace-pre-wrap text-gray-800">{reviewTask.report}</div>
+              </div>
+            ) : (
+              <div className="text-gray-500">No written report provided.</div>
+            )}
+
+            {reviewTask.form_fields && reviewTask.form_fields.length > 0 && (
+              <div>
+                <div className="text-sm font-semibold text-gray-900 mb-2">Form Responses</div>
+                <div className="space-y-2">
+                  {reviewTask.form_fields.map((f) => {
+                    const val = (reviewTask.form_responses || {})[f.id]
+                    const display = Array.isArray(val) ? val.join(', ') : (val ?? '')
+                    return (
+                      <div key={f.id} className="flex justify-between gap-4 border-b border-gray-100 pb-1">
+                        <div className="text-gray-600">{f.label}</div>
+                        <div className="text-gray-900 text-right break-words">{String(display) || '—'}</div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : null}
+      </SimpleModal>
     </div>
   )
 }
 
 export default VolunteerTaskManager
-

@@ -89,6 +89,7 @@ export interface Task {
   assigned_by: string;
   patient_id?: string;
   due_date?: string;
+  due_time?: string; // optional HH:MM (24h)
   report?: string; // optional completion note/result
   created_at: string;
   updated_at: string;
@@ -144,6 +145,17 @@ export interface DailyRecord {
   medications_taken?: string;
   activities?: string;
   notes?: string;
+  // Doctor-only notes visible to patient/volunteer
+  dr_instructions?: string;
+  // Optional custom fields for this record
+  custom_fields?: Array<{
+    id: string;
+    label: string;
+    type: 'text' | 'number' | 'date' | 'textarea' | 'select' | 'checkbox' | 'radio';
+    options?: string[];
+    required?: boolean;
+  }>;
+  custom_values?: Record<string, any>;
   
   created_at: string;
   updated_at: string;

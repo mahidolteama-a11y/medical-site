@@ -32,8 +32,22 @@ const VolunteerMyTasks: React.FC = () => {
     setLoading(false)
   }
 
-  const todayAppointments = useMemo(() => tasks.filter(t => isToday(t.due_date) && !!t.patient), [tasks])
-  const todayTodos = useMemo(() => tasks.filter(t => isToday(t.due_date) && !t.patient), [tasks])
+  const effectiveStatus = (t: Task): Task['status'] => {
+    // Guard: tasks should not appear completed until a report is submitted
+    if (t.status === 'completed' && !(t.report && String(t.report).trim().length > 0)) {
+      return 'in_progress'
+    }
+    return t.status
+  }
+
+  const todayAppointments = useMemo(
+    () => tasks.filter(t => isToday(t.due_date) && !!t.patient),
+    [tasks]
+  )
+  const todayTodos = useMemo(
+    () => tasks.filter(t => isToday(t.due_date) && !t.patient),
+    [tasks]
+  )
 
   const isFuture = (dateStr?: string) => {
     if (!dateStr) return false
@@ -50,13 +64,31 @@ const VolunteerMyTasks: React.FC = () => {
   }
 
   // Additional groups per tab
-  const upcomingAppointments = useMemo(() => tasks.filter(t => !!t.patient && isFuture(t.due_date) && t.status !== 'completed' && t.status !== 'cancelled'), [tasks])
-  const overdueAppointments = useMemo(() => tasks.filter(t => !!t.patient && isPast(t.due_date) && t.status !== 'completed' && t.status !== 'cancelled'), [tasks])
-  const finishedAppointments = useMemo(() => tasks.filter(t => !!t.patient && t.status === 'completed'), [tasks])
+  const upcomingAppointments = useMemo(
+    () => tasks.filter(t => !!t.patient && isFuture(t.due_date) && effectiveStatus(t) !== 'completed' && t.status !== 'cancelled'),
+    [tasks]
+  )
+  const overdueAppointments = useMemo(
+    () => tasks.filter(t => !!t.patient && isPast(t.due_date) && effectiveStatus(t) !== 'completed' && t.status !== 'cancelled'),
+    [tasks]
+  )
+  const finishedAppointments = useMemo(
+    () => tasks.filter(t => !!t.patient && t.status === 'completed' && !!(t.report && String(t.report).trim().length > 0)),
+    [tasks]
+  )
 
-  const upcomingTodos = useMemo(() => tasks.filter(t => !t.patient && isFuture(t.due_date) && t.status !== 'completed' && t.status !== 'cancelled'), [tasks])
-  const overdueTodos = useMemo(() => tasks.filter(t => !t.patient && isPast(t.due_date) && t.status !== 'completed' && t.status !== 'cancelled'), [tasks])
-  const finishedTodos = useMemo(() => tasks.filter(t => !t.patient && t.status === 'completed'), [tasks])
+  const upcomingTodos = useMemo(
+    () => tasks.filter(t => !t.patient && isFuture(t.due_date) && effectiveStatus(t) !== 'completed' && t.status !== 'cancelled'),
+    [tasks]
+  )
+  const overdueTodos = useMemo(
+    () => tasks.filter(t => !t.patient && isPast(t.due_date) && effectiveStatus(t) !== 'completed' && t.status !== 'cancelled'),
+    [tasks]
+  )
+  const finishedTodos = useMemo(
+    () => tasks.filter(t => !t.patient && t.status === 'completed' && !!(t.report && String(t.report).trim().length > 0)),
+    [tasks]
+  )
 
   const handleStart = async (task: Task) => {
     await updateTask(task.id, { status: 'in_progress' })
@@ -96,7 +128,7 @@ const VolunteerMyTasks: React.FC = () => {
                   <div className="text-gray-700 mt-2">Due {task.due_date ? new Date(task.due_date).toLocaleDateString() : '—'} {task.patient && <span>• Patient: {task.patient.name}</span>}</div>
                 </div>
                 <div className="flex gap-2">
-                  {task.status !== 'completed' && task.status !== 'cancelled' && (
+                  {effectiveStatus(task) !== 'completed' && task.status !== 'cancelled' && (
                     <button onClick={() => openReport(task)} className="px-3 py-1 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700">Open</button>
                   )}
                 </div>
@@ -155,12 +187,12 @@ const VolunteerMyTasks: React.FC = () => {
                   )}
                 </div>
                 <div className="flex gap-2">
-                  {task.status === 'pending' && (
+                  {effectiveStatus(task) === 'pending' && (
                     <button onClick={() => handleStart(task)} className="px-3 py-1 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700">Start</button>
                   )}
-                  {(task.status === 'in_progress' || task.status === 'pending') && (
-                    <button onClick={() => openReport(task)} className="px-3 py-1 rounded-lg bg-green-600 text-white text-sm hover:bg-green-700 flex items-center gap-1">
-                      <CheckCircle className="w-4 h-4" /> Complete
+                  {effectiveStatus(task) !== 'completed' && task.status !== 'cancelled' && (
+                    <button onClick={() => openReport(task)} className="px-3 py-1 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700">
+                      Open
                     </button>
                   )}
                 </div>

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getAllVolunteers } from '../../lib/volunteersService';
+import { getPatientProfiles } from '../../lib/dummyDatabase';
 import { VolunteerProfile } from '../../types';
 import { Plus, Search, Eye } from 'lucide-react';
 import { VolunteerForm } from './VolunteerForm';
@@ -10,13 +11,27 @@ export const VolunteerListPage: React.FC = () => {
   const isDoctor = user?.role === 'doctor';
   const [items, setItems] = useState<VolunteerProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [assignedCounts, setAssignedCounts] = useState<Record<string, number>>({});
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<VolunteerProfile | null>(null);
 
   const fetchAll = async () => {
-    const { data } = await getAllVolunteers();
-    setItems(data || []);
+    setLoading(true);
+    const [{ data: volunteers }, { data: patients }] = await Promise.all([
+      getAllVolunteers(),
+      getPatientProfiles(),
+    ]);
+    setItems(volunteers || []);
+    // Build counts by volunteer id
+    const counts: Record<string, number> = {};
+    const people = (patients || []) as any[];
+    (volunteers || []).forEach((v: any) => {
+      const name = (v.user?.full_name || v.name || '').toLowerCase();
+      const cnt = people.filter(p => typeof p.assigned_vhv_name === 'string' && p.assigned_vhv_name.toLowerCase().includes(name)).length;
+      counts[v.id] = cnt;
+    });
+    setAssignedCounts(counts);
     setLoading(false);
   };
 
@@ -58,6 +73,7 @@ export const VolunteerListPage: React.FC = () => {
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Email</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Phone</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Area</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Assigned Patients</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Action</th>
               </tr>
             </thead>
@@ -87,6 +103,7 @@ export const VolunteerListPage: React.FC = () => {
                       <span className="text-gray-400 text-xs">Not assigned</span>
                     )}
                   </td>
+                  <td className="px-4 py-3 text-sm">{assignedCounts[v.id] ?? 0}</td>
                   <td className="px-4 py-3 text-sm">
                     <button onClick={() => { setEditing(v); setShowForm(true) }} className="text-sky-700 hover:underline inline-flex items-center gap-1"><Eye className="w-4 h-4"/>View Detail</button>
                   </td>
@@ -94,7 +111,7 @@ export const VolunteerListPage: React.FC = () => {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                     No volunteers found
                   </td>
                 </tr>

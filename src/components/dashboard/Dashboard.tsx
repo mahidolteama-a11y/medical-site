@@ -7,7 +7,6 @@ import { Users, MessageSquare, FileText, Heart, CheckSquare, Megaphone, Plus, Cr
 import { MapPin, Activity } from 'lucide-react'
 import { AnnouncementForm } from './AnnouncementForm'
 import PatientStatsChart from './PatientStatsChart'
-import PatientVizGrid from './PatientVizGrid'
 import { DataExport } from './DataExport'
 
 export const Dashboard: React.FC = () => {
@@ -253,15 +252,65 @@ This is an urgent request for immediate medical assistance. Please respond as so
         <p className="text-gray-600">{getWelcomeMessage()}</p>
       </div>
 
+      {/* Doctor stats cards at top */}
       {user?.role === 'doctor' && (
-        <>
-          <PatientStatsChart patients={patients} />
-          <PatientVizGrid patients={patients} />
-        </>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center space-x-4">
+              <div className="bg-blue-100 p-3 rounded-lg">
+                <Users className="w-6 h-6 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-900">{patientStats.total}</p>
+                <p className="text-sm text-gray-600">Total Patients</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center space-x-4">
+              <div className="bg-red-100 p-3 rounded-lg">
+                <AlertTriangle className="w-6 h-6 text-red-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-900">{patientStats.critical}</p>
+                <p className="text-sm text-gray-600">Critical Patients</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center space-x-4">
+              <div className="bg-orange-100 p-3 rounded-lg">
+                <Users className="w-6 h-6 text-orange-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-900">{patientStats.elderly}</p>
+                <p className="text-sm text-gray-600">Elderly Patients</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center space-x-4">
+              <div className="bg-pink-100 p-3 rounded-lg">
+                <Heart className="w-6 h-6 text-pink-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-gray-900">{patientStats.pregnant}</p>
+                <p className="text-sm text-gray-600">Pregnant Patients</p>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
-      {/* Patient Statistics for Doctors/Volunteers */}
-      {(user?.role === 'doctor' || user?.role === 'volunteer') && (
+      {user?.role === 'doctor' && (
+        <PatientStatsChart patients={patients} />
+      )}
+
+      {/* Patient Statistics for Volunteers (kept in original position) */}
+      {user?.role === 'volunteer' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="flex items-center space-x-4">

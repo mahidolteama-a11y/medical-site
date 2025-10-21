@@ -2,16 +2,18 @@ import { MapArea } from '../types';
 import { geocodeAddress, geocodeStructuredAddress } from './geocoding';
 
 export const isPointInPolygon = (point: [number, number], polygon: number[][]): boolean => {
-  const [x, y] = point;
+  // Accept inputs as [lat, lng] pairs but compute using x=lng, y=lat
+  const x = point[1];
+  const y = point[0];
   let inside = false;
 
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const xi = polygon[i][1];
-    const yi = polygon[i][0];
+    const xi = polygon[i][1]; // lng
+    const yi = polygon[i][0]; // lat
     const xj = polygon[j][1];
     const yj = polygon[j][0];
 
-    const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+    const intersect = ((yi > y) !== (yj > y)) && (x < ((xj - xi) * (y - yi)) / (yj - yi) + xi);
     if (intersect) inside = !inside;
   }
 

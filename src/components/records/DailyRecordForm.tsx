@@ -32,8 +32,12 @@ export const DailyRecordForm: React.FC<DailyRecordFormProps> = ({ record, patien
     symptoms_description: '',
     medications_taken: '',
     activities: '',
-    notes: ''
+    notes: '',
+    dr_instructions: '',
+    custom_fields: [] as any[],
+    custom_values: {} as Record<string, any>
   })
+  const [customFields, setCustomFields] = useState<Array<{id:string;label:string;type:any;options?:string;required?:boolean}>>([])
 
   useEffect(() => {
     if (user?.role === 'patient') {
@@ -60,8 +64,12 @@ export const DailyRecordForm: React.FC<DailyRecordFormProps> = ({ record, patien
         symptoms_description: record.symptoms_description || '',
         medications_taken: record.medications_taken || '',
         activities: record.activities || '',
-        notes: record.notes || ''
+        notes: record.notes || '',
+        dr_instructions: record.dr_instructions || '',
+        custom_fields: (record.custom_fields as any) || [],
+        custom_values: record.custom_values || {}
       })
+      setCustomFields(((record.custom_fields as any) || []).map((f:any)=>({ ...f, options: (f.options||[]).join(', ') })))
     }
   }, [record, user])
 
@@ -83,7 +91,14 @@ export const DailyRecordForm: React.FC<DailyRecordFormProps> = ({ record, patien
     try {
       const { data, error } = await getPatientProfiles()
       if (!error && data) {
-        setPatients(data)
+        // Restrict volunteers to their assigned patients only
+        if (user?.role === 'volunteer') {
+          const myName = (user.full_name || '').toLowerCase()
+          const assigned = (data || []).filter((p:any)=> typeof p.assigned_vhv_name === 'string' && p.assigned_vhv_name.toLowerCase().includes(myName))
+          setPatients(assigned as any)
+        } else {
+          setPatients(data)
+        }
         if (patientId) {
           setFormData(prev => ({ ...prev, patient_id: patientId }))
         }
@@ -107,7 +122,7 @@ export const DailyRecordForm: React.FC<DailyRecordFormProps> = ({ record, patien
 
       if (record) {
         // Update existing record
-        const { error } = await updateDailyRecord(record.id, formData)
+        const { error } = await updateDailyRecord(record.id, { ...formData, custom_fields: customFields.map(f=>({ id: f.id, label: f.label, type: f.type, options: (f.options||'').split(',').map(s=>s.trim()).filter(Boolean) })) } as any)
         if (error) {
           console.error('Error updating daily record:', error)
           return
@@ -116,6 +131,7 @@ export const DailyRecordForm: React.FC<DailyRecordFormProps> = ({ record, patien
         // Create new record
         const { error } = await createDailyRecord({
           ...formData,
+          custom_fields: customFields.map(f=>({ id: f.id, label: f.label, type: f.type, options: (f.options||'').split(',').map(s=>s.trim()).filter(Boolean) })),
           patient_id: recordPatientId,
           recorded_by: user?.id || ''
         })
@@ -208,9 +224,9 @@ export const DailyRecordForm: React.FC<DailyRecordFormProps> = ({ record, patien
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
                   >
                     <option value="">Choose a patient...</option>
-                    {patients.map((patient) => (
-                      <option key={patient.id} value={patient.id}>
-                        {patient.first_name} {patient.last_name}
+                    {patients.map((p:any) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
                       </option>
                     ))}
                   </select>
@@ -318,11 +334,11 @@ export const DailyRecordForm: React.FC<DailyRecordFormProps> = ({ record, patien
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
                   />
                 </div>
-              </div>
             </div>
+          </div>
 
-            {/* Symptoms & Well-being */}
-            <div className="space-y-6">
+          {/* Symptoms & Well-being */}
+          <div className="space-y-6">
               <h3 className="text-lg font-semibold text-gray-900 pb-2 border-b border-gray-200">
                 Symptoms & Well-being
               </h3>
@@ -346,8 +362,99 @@ export const DailyRecordForm: React.FC<DailyRecordFormProps> = ({ record, patien
                   <span>0 - No Pain</span>
                   <span>10 - Extreme Pain</span>
                 </div>
-              </div>
+            </div>
 
+            {/* Doctor Instructions (read-only to non-doctors) */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Doctor Instructions</label>
+              <textarea
+                name="dr_instructions"
+                rows={3}
+                value={formData.dr_instructions}
+                onChange={handleChange}
+                readOnly={user?.role !== 'doctor'}
+                placeholder="Guidance for patient/volunteer (visible to them, not editable)"
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all ${user?.role !== 'doctor' ? 'bg-gray-50' : ''}`}
+              />
+            </div>
+
+            {/* Custom Fields (doctor only) */}
+            {user?.role === 'doctor' && (
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Custom Fields</label>
+                <div className="space-y-3">
+                  {customFields.map((f, idx) => (
+                    <div key={f.id} className="grid grid-cols-1 md:grid-cols-5 gap-2 items-center">
+                      <input className="px-3 py-2 border rounded md:col-span-2" placeholder="Label" value={f.label} onChange={e=>{
+                        const v=e.target.value; setCustomFields(prev=>prev.map((x,i)=> i===idx?{...x,label:v}:x))
+                      }} />
+                      <select className="px-3 py-2 border rounded" value={f.type} onChange={e=>{
+                        const v=e.target.value; setCustomFields(prev=>prev.map((x,i)=> i===idx?{...x,type:v}:x))
+                      }}>
+                        <option value="text">Text</option>
+                        <option value="textarea">Textarea</option>
+                        <option value="number">Number</option>
+                        <option value="date">Date</option>
+                        <option value="select">Select</option>
+                        <option value="checkbox">Checkbox</option>
+                        <option value="radio">Radio</option>
+                      </select>
+                      <input className="px-3 py-2 border rounded md:col-span-2" placeholder="Options (comma separated)" value={f.options||''} onChange={e=>{
+                        const v=e.target.value; setCustomFields(prev=>prev.map((x,i)=> i===idx?{...x,options:v}:x))
+                      }} />
+                      <button type="button" className="text-red-600 text-sm" onClick={()=> setCustomFields(prev=>prev.filter((_,i)=>i!==idx))}>Remove</button>
+                    </div>
+                  ))}
+                  <button type="button" className="px-3 py-2 border rounded text-sm" onClick={()=> setCustomFields(prev=> ([...prev, { id: 'cf-' + Math.random().toString(36).slice(2,9), label: '', type: 'text', options: '' }]))}>+ Add Field</button>
+                </div>
+              </div>
+            )}
+
+            {/* Custom Field Values (filled by doctor when creating/editing) */}
+            {((customFields.length>0) || ((formData.custom_fields||[] as any).length>0)) && (
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Custom Values</label>
+                <div className="space-y-3">
+                  {((user?.role==='doctor'?customFields:(formData.custom_fields as any))||[]).map((f:any)=>{
+                    const key=f.id; const val=(formData.custom_values as any)[key] ?? ''
+                    const setVal=(v:any)=> setFormData(prev=> ({...prev, custom_values: { ...(prev.custom_values||{}), [key]: v }}))
+                    if (f.type==='textarea') return <textarea key={key} rows={2} className="w-full px-3 py-2 border rounded" value={val} onChange={e=>setVal(e.target.value)} readOnly={user?.role!=='doctor'} placeholder={f.label} />
+                    if (f.type==='number') return <input key={key} type="number" className="w-full px-3 py-2 border rounded" value={val} onChange={e=>setVal(e.target.value)} readOnly={user?.role!=='doctor'} placeholder={f.label} />
+                    if (f.type==='date') return <input key={key} type="date" className="w-full px-3 py-2 border rounded" value={val} onChange={e=>setVal(e.target.value)} readOnly={user?.role!=='doctor'} />
+                    if (f.type==='select') return (
+                      <select key={key} className="w-full px-3 py-2 border rounded" value={val} onChange={e=>setVal(e.target.value)} disabled={user?.role!=='doctor'}>
+                        <option value="">Select…</option>
+                        {(f.options||'').split(',').map((o:string)=>o.trim()).filter(Boolean).map((o:string)=>(<option key={o} value={o}>{o}</option>))}
+                      </select>
+                    )
+                    if (f.type==='checkbox') return (
+                      <div key={key} className="flex flex-wrap gap-3">
+                        {(f.options||'').split(',').map((o:string)=>o.trim()).filter(Boolean).map((o:string)=>{
+                          const arr=Array.isArray(val)?val:[]; const checked=arr.includes(o)
+                          return (
+                            <label key={o} className="text-sm text-gray-700 flex items-center gap-2">
+                              <input type="checkbox" checked={checked} disabled={user?.role!=='doctor'} onChange={(e)=>{
+                                const set=new Set(arr); if (e.target.checked) set.add(o); else set.delete(o); setVal(Array.from(set))
+                              }} /> {o}
+                            </label>
+                          )
+                        })}
+                      </div>
+                    )
+                    if (f.type==='radio') return (
+                      <div key={key} className="flex flex-wrap gap-3">
+                        {(f.options||'').split(',').map((o:string)=>o.trim()).filter(Boolean).map((o:string)=> (
+                          <label key={o} className="text-sm text-gray-700 flex items-center gap-2">
+                            <input type="radio" name={key} value={o} checked={val===o} disabled={user?.role!=='doctor'} onChange={()=>setVal(o)} /> {o}
+                          </label>
+                        ))}
+                      </div>
+                    )
+                    return <input key={key} className="w-full px-3 py-2 border rounded" value={val} onChange={e=>setVal(e.target.value)} readOnly={user?.role!=='doctor'} placeholder={f.label} />
+                  })}
+                </div>
+              </div>
+            )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Fatigue Level: <span className={`font-semibold ${getLevelColor(formData.fatigue_level)}`}>

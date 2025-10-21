@@ -28,6 +28,11 @@ const loadUsersFromStorage = (): DummyUser[] => {
 // Initialize persistent users
 let persistentUsers = loadUsersFromStorage();
 
+// Ensure reads reflect latest localStorage
+const refreshUsers = () => {
+  persistentUsers = loadUsersFromStorage();
+};
+
 export interface AuthSession {
   user: DummyUser;
   token: string;
@@ -75,6 +80,7 @@ export const signUp = async (email: string, password: string, fullName: string, 
 };
 
 export const signIn = async (email: string, password: string) => {
+  refreshUsers();
   // Find user
   const user = persistentUsers.find(u => u.email === email && u.password === password);
   
@@ -134,6 +140,7 @@ export const getCurrentSession = (): AuthSession | null => {
 };
 
 export const getUserById = (id: string): DummyUser | undefined => {
+  refreshUsers();
   return persistentUsers.find(user => user.id === id);
 };
 
@@ -141,6 +148,20 @@ export const setUserPassword = async (userId: string, password: string) => {
   const idx = persistentUsers.findIndex(u => u.id === userId);
   if (idx === -1) return { error: { message: 'User not found' } };
   persistentUsers[idx].password = password || '';
+  try {
+    localStorage.setItem('dummyUsers', JSON.stringify(persistentUsers));
+  } catch {}
+  return { error: null };
+};
+
+export const setUserEmail = async (userId: string, email: string) => {
+  refreshUsers();
+  const idx = persistentUsers.findIndex(u => u.id === userId);
+  if (idx === -1) return { error: { message: 'User not found' } };
+  // Prevent duplicate emails
+  const exists = persistentUsers.find((u, i) => i !== idx && u.email.toLowerCase() === email.toLowerCase());
+  if (exists) return { error: { message: 'Email already in use' } };
+  persistentUsers[idx].email = email;
   try {
     localStorage.setItem('dummyUsers', JSON.stringify(persistentUsers));
   } catch {}

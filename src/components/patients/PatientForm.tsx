@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
-import { createPatientProfile, updatePatientProfile, getUsers, createPatientUser, getNextMRN, getVolunteers } from '../../lib/dummyDatabase'
-import { getUserById } from '../../lib/dummyAuth'
+import { createPatientProfile, updatePatientProfile, getUsers, createPatientUser, getNextMRN, getVolunteers, getPatientProfiles } from '../../lib/dummyDatabase'
+import { getUserById, setUserEmail } from '../../lib/dummyAuth'
 import { PatientProfile } from '../../types'
 import { ArrowLeft, Save, User } from 'lucide-react'
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, useMapEvents, Polygon } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
+import { getAllMapAreas } from '../../lib/mapAreasService'
+import { assignAreaDualMethod, AreaAssignmentResult } from '../../lib/areaAssignment'
+import THAI_PROVINCES from '../../data/thaiProvinces'
 
 interface PatientFormProps {
   patient?: PatientProfile | null
@@ -69,6 +72,10 @@ export const PatientForm: React.FC<PatientFormProps> = ({ patient, onClose }) =>
   // Options for doctor and volunteers
   const [doctors, setDoctors] = useState<{ id: string; full_name: string }[]>([])
   const [volunteerProfiles, setVolunteerProfiles] = useState<any[]>([])
+  const [vhvCounts, setVhvCounts] = useState<Record<string, number>>({})
+  const [areas, setAreas] = useState<any[]>([])
+  const [assignmentResult, setAssignmentResult] = useState<AreaAssignmentResult | null>(null)
+  const [isAssigning, setIsAssigning] = useState(false)
 
   useEffect(() => {
     // load users for selects
@@ -76,8 +83,24 @@ export const PatientForm: React.FC<PatientFormProps> = ({ patient, onClose }) =>
       const { data } = await getUsers()
       const docs = (data || []).filter((u: any) => u.role === 'doctor').map((u: any) => ({ id: u.id, full_name: u.full_name }))
       setDoctors(docs)
+
       const vols = await getVolunteers()
       setVolunteerProfiles(vols.data || [])
+
+      // Build counts of assigned patients per VHV (by volunteer display name)
+      try {
+        const pats = await getPatientProfiles()
+        const counts: Record<string, number> = {}
+        for (const p of (pats.data || []) as any[]) {
+          const name = (p.assigned_vhv_name || '').toLowerCase().trim()
+          if (!name) continue
+          counts[name] = (counts[name] || 0) + 1
+        }
+        setVhvCounts(counts)
+      } catch {}
+
+      const ma = await getAllMapAreas()
+      setAreas(ma.data || [])
     })()
 
     if (patient) {
@@ -125,6 +148,27 @@ export const PatientForm: React.FC<PatientFormProps> = ({ patient, onClose }) =>
       })
     }
   }, [patient])
+
+  // Determine area assignment from location or address
+  useEffect(() => {
+    const fullAddress = [formData.addressLine, formData.subdistrict, formData.district, formData.province]
+      .filter(Boolean)
+      .join(', ')
+    if ((formData.lat && formData.lng) || fullAddress.length > 5) {
+      const t = setTimeout(async () => {
+        setIsAssigning(true)
+        const result = await assignAreaDualMethod(formData.lat, formData.lng, fullAddress, areas)
+        setAssignmentResult(result)
+        if (result.geocodedLat && result.geocodedLng && !formData.lat && !formData.lng) {
+          setFormData(prev => ({ ...prev, lat: result.geocodedLat, lng: result.geocodedLng }))
+        }
+        setIsAssigning(false)
+      }, 600)
+      return () => clearTimeout(t)
+    } else {
+      setAssignmentResult(null)
+    }
+  }, [formData.lat, formData.lng, formData.addressLine, formData.subdistrict, formData.district, formData.province, areas])
 
   // On create mode, prefill MRN with the next auto-generated value
   useEffect(() => {
@@ -191,6 +235,8 @@ export const PatientForm: React.FC<PatientFormProps> = ({ patient, onClose }) =>
         lat: formData.lat,
         lng: formData.lng,
         photo_url: (formData as any).photo_url,
+        area_id: assignmentResult?.area?.id,
+        area_name: assignmentResult?.area?.name,
       }
 
       if (patient) {
@@ -199,6 +245,15 @@ export const PatientForm: React.FC<PatientFormProps> = ({ patient, onClose }) =>
         if ((!patient.user_id || !getUserById(patient.user_id)) && formData.patient_email) {
           const { data: pUser } = await createPatientUser(formData.patient_email, formData.name)
           if (pUser?.id) updates.user_id = pUser.id
+        } else if (patient.user_id && formData.patient_email) {
+          // If email changed, update the existing user email
+          const existing = patient.user_id ? getUserById(patient.user_id) : undefined
+          if (existing && existing.email.toLowerCase() !== formData.patient_email.toLowerCase()) {
+            const { error } = await setUserEmail(patient.user_id, formData.patient_email)
+            if (error) {
+              console.error('Error updating user email:', error)
+            }
+          }
         }
         const { error } = await updatePatientProfile(patient.id, updates)
 
@@ -367,31 +422,19 @@ export const PatientForm: React.FC<PatientFormProps> = ({ patient, onClose }) =>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Province</label>
                 <select name="province" value={formData.province} onChange={handleChange} disabled={isReadOnly} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50">
-                  <option value="">Select</option>
-                  <option value="Nakhon Pathom">Nakhon Pathom</option>
-                  <option value="Bangkok">Bangkok</option>
-                  <option value="Nonthaburi">Nonthaburi</option>
-                  <option value="Pathum Thani">Pathum Thani</option>
+                  <option value="">Select Province</option>
+                  {THAI_PROVINCES.map(p => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">District/ Area</label>
-                <select name="district" value={formData.district} onChange={handleChange} disabled={isReadOnly} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50">
-                  <option value="">Select</option>
-                  <option value="Phutthamonthon">Phutthamonthon</option>
-                  <option value="Salaya">Salaya</option>
-                  <option value="Bang Khae">Bang Khae</option>
-                  <option value="Mueang">Mueang</option>
-                </select>
+                <label className="block text-sm font-medium text-gray-700 mb-2">District / Amphoe</label>
+                <input name="district" value={formData.district} onChange={handleChange} readOnly={isReadOnly} placeholder="District (Amphoe)" className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Sub-District/ Sub-Area</label>
-                <select name="subdistrict" value={formData.subdistrict} onChange={handleChange} disabled={isReadOnly} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50">
-                  <option value="">Select</option>
-                  <option value="Phra Khanong Tai">Phra Khanong Tai</option>
-                  <option value="Maha Sawat">Maha Sawat</option>
-                  <option value="Salaya">Salaya</option>
-                </select>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Sub-District / Tambon</label>
+                <input name="subdistrict" value={formData.subdistrict} onChange={handleChange} readOnly={isReadOnly} placeholder="Sub-district (Tambon)" className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50" />
               </div>
               <div className="md:col-span-2 lg:col-span-3">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
@@ -449,26 +492,25 @@ export const PatientForm: React.FC<PatientFormProps> = ({ patient, onClose }) =>
                   name="assigned_vhv_name"
                   value={formData.assigned_vhv_name}
                   onChange={handleChange}
-                  disabled={isReadOnly || !formData.subdistrict}
+                  disabled={isReadOnly || !formData.lat || !formData.lng || !assignmentResult?.area}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50"
                 >
-                  <option value="">{formData.subdistrict ? 'Select' : 'Select sub-district first'}</option>
+                  <option value="">{(formData.lat && formData.lng && assignmentResult?.area) ? 'Select' : 'Pin location on map first'}</option>
                   {(() => {
-                    const extractSub = (addr?: string) => {
-                      if (!addr) return ''
-                      const parts = addr.split(',').map(s => s.trim()).filter(Boolean)
-                      return parts.length >= 3 ? parts[parts.length - 3] : ''
-                    }
-                    const subs = formData.subdistrict
-                    const list = (volunteerProfiles || []).filter((v: any) => extractSub(v.address) === subs)
+                    const areaName = assignmentResult?.area?.name
+                    const list = (volunteerProfiles || []).filter((v: any) => (v.area_name || '').toLowerCase() === (areaName || '').toLowerCase())
                     const opts = list.map((v: any) => ({ id: v.user_id || v.id, name: (v.user?.full_name || v.name) }))
                     const names = new Set(opts.map(o => o.name))
                     if (formData.assigned_vhv_name && !names.has(formData.assigned_vhv_name)) {
                       opts.unshift({ id: 'current', name: formData.assigned_vhv_name })
                     }
-                    return opts.map(o => (
-                      <option key={o.id + o.name} value={o.name}>{o.name}</option>
-                    ))
+                    return opts.map(o => {
+                      const key = o.name.toLowerCase()
+                      const count = vhvCounts[key] || 0
+                      return (
+                        <option key={o.id + o.name} value={o.name}>{o.name} ({count})</option>
+                      )
+                    })
                   })()}
                 </select>
               </div>
@@ -502,11 +544,36 @@ export const PatientForm: React.FC<PatientFormProps> = ({ patient, onClose }) =>
               <MapContainer center={defaultCenter} zoom={14} style={{ height: '100%', width: '100%' }} scrollWheelZoom>
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap contributors" />
                 <ClickHandler />
+                {areas.map((area: any) => {
+                  if (!area.geometry?.coordinates?.[0]) return null
+                  const coords = area.geometry.coordinates[0].map((c: number[]) => [c[0], c[1]] as [number, number])
+                  const isAssigned = assignmentResult?.area?.id === area.id
+                  return (
+                    <Polygon key={area.id} positions={coords} pathOptions={{
+                      color: area.color,
+                      fillColor: area.color,
+                      fillOpacity: isAssigned ? 0.3 : 0.1,
+                      weight: isAssigned ? 3 : 2
+                    }} />
+                  )
+                })}
                 {typeof formData.lat === 'number' && typeof formData.lng === 'number' && (
                   <Marker position={[formData.lat, formData.lng]} icon={patientIcon} />
                 )}
               </MapContainer>
             </div>
+            {assignmentResult && (
+              <div className={`mt-3 p-3 rounded border ${assignmentResult.area ? 'bg-green-50 border-green-200 text-green-800' : 'bg-yellow-50 border-yellow-200 text-yellow-800'}`}>
+                {assignmentResult.area ? (
+                  <>
+                    Assigned Area: <strong>{assignmentResult.area.name}</strong>
+                    <span className="ml-2 text-xs opacity-70">{assignmentResult.confidence} ({assignmentResult.method})</span>
+                  </>
+                ) : (
+                  <>No matching area for this location</>
+                )}
+              </div>
+            )}
             <div className="mt-3 grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm text-gray-700">Latitude</label>

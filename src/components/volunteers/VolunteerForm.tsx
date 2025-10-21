@@ -7,7 +7,8 @@ import { VolunteerProfile, MapArea } from '../../types';
 import { createVolunteer, updateVolunteer, getNextVolunteerCode } from '../../lib/volunteersService';
 import { getAllMapAreas } from '../../lib/mapAreasService';
 import { assignAreaDualMethod, AreaAssignmentResult } from '../../lib/areaAssignment';
-import { supabase } from '../../lib/supabase';
+import { createVolunteerUser, getPatientProfiles, updatePatientProfile } from '../../lib/dummyDatabase';
+import THAI_PROVINCES from '../../data/thaiProvinces';
 
 interface VolunteerFormProps {
   record: VolunteerProfile | null;
@@ -20,6 +21,11 @@ export const VolunteerForm: React.FC<VolunteerFormProps> = ({ record, onClose })
   const [areas, setAreas] = useState<MapArea[]>([]);
   const [assignmentResult, setAssignmentResult] = useState<AreaAssignmentResult | null>(null);
   const [isAssigning, setIsAssigning] = useState(false);
+  const [assignedPatients, setAssignedPatients] = useState<any[]>([]);
+  const [allPatients, setAllPatients] = useState<any[]>([]);
+  const [patientSearch, setPatientSearch] = useState('');
+  const volunteerDisplayName = (record?.user?.full_name || record?.name || '').trim();
+  const volunteerAreaName = (record?.area_name || '').toLowerCase();
 
   const [formData, setFormData] = useState({
     name: record?.name || '',
@@ -59,6 +65,22 @@ export const VolunteerForm: React.FC<VolunteerFormProps> = ({ record, onClose })
       });
     }
   }, [record]);
+
+  // Load assigned patients when viewing/editing an existing volunteer
+  useEffect(() => {
+    (async () => {
+      if (!record) return;
+      const { data } = await getPatientProfiles();
+      const patients = data || [];
+      setAllPatients(patients);
+      if (volunteerDisplayName) {
+        const mine = patients.filter((p: any) => typeof p.assigned_vhv_name === 'string' && p.assigned_vhv_name.toLowerCase().includes(volunteerDisplayName.toLowerCase()));
+        setAssignedPatients(mine);
+      } else {
+        setAssignedPatients([]);
+      }
+    })();
+  }, [record, volunteerDisplayName]);
 
   useEffect(() => {
     const fullAddress = [formData.addressLine, formData.subdistrict, formData.district, formData.province]
@@ -107,26 +129,26 @@ export const VolunteerForm: React.FC<VolunteerFormProps> = ({ record, onClose })
         area_name: assignmentResult?.area?.name || null
       };
 
+      // Require map location and area assignment for creation
+      if (!formData.lat || !formData.lng) {
+        alert('Please click on the map to set the volunteer\'s exact location.');
+        setLoading(false);
+        return;
+      }
+      if (!assignmentResult?.area) {
+        alert('Please place the volunteer inside a defined area created by a doctor.');
+        setLoading(false);
+        return;
+      }
+
       if (editing && record) {
         volunteerData.volunteer_code = formData.volunteer_code;
         const { error } = await updateVolunteer(record.id, volunteerData);
         if (error) throw error;
       } else {
-        const { data: authUser } = await supabase.auth.admin.createUser({
-          email: formData.email,
-          password: 'TempPass123!',
-          email_confirm: true,
-          user_metadata: {
-            full_name: formData.name,
-            role: 'volunteer'
-          }
-        });
-
-        if (!authUser.user) {
-          throw new Error('Failed to create user account');
-        }
-
-        volunteerData.user_id = authUser.user.id;
+        const { data: volUser, error: uerr } = await createVolunteerUser(formData.email, formData.name);
+        if (uerr) throw uerr;
+        volunteerData.user_id = volUser?.id;
         volunteerData.volunteer_code = formData.volunteer_code;
 
         const { error } = await createVolunteer(volunteerData);
@@ -140,6 +162,35 @@ export const VolunteerForm: React.FC<VolunteerFormProps> = ({ record, onClose })
     } finally {
       setLoading(false);
     }
+  };
+
+  const refreshAssigned = async () => {
+    const { data } = await getPatientProfiles();
+    const patients = data || [];
+    setAllPatients(patients);
+    if (volunteerDisplayName) {
+      const mine = patients.filter((p: any) => typeof p.assigned_vhv_name === 'string' && p.assigned_vhv_name.toLowerCase().includes(volunteerDisplayName.toLowerCase()));
+      setAssignedPatients(mine);
+    }
+  };
+
+  const handleAssignPatient = async (patientId: string) => {
+    if (!record || !patientId) return;
+    // Enforce area match on assignment
+    const target = (allPatients || []).find((p: any) => p.id === patientId);
+    const sameArea = ((target?.area_name || '').toLowerCase() === volunteerAreaName) || volunteerAreaName === '';
+    if (!sameArea) {
+      alert('This patient is not in the same area as the volunteer.');
+      return;
+    }
+    await updatePatientProfile(patientId, { assigned_vhv_name: volunteerDisplayName } as any);
+    await refreshAssigned();
+  };
+
+  const handleUnassignPatient = async (patientId: string) => {
+    if (!patientId) return;
+    await updatePatientProfile(patientId, { assigned_vhv_name: '' } as any);
+    await refreshAssigned();
   };
 
   const icon = useMemo(() => L.divIcon({
@@ -239,41 +290,31 @@ export const VolunteerForm: React.FC<VolunteerFormProps> = ({ record, onClose })
                 value={formData.province}
                 onChange={e => setFormData(prev => ({ ...prev, province: e.target.value }))}
               >
-                <option value="">Select</option>
-                <option value="Nakhon Pathom">Nakhon Pathom</option>
-                <option value="Bangkok">Bangkok</option>
-                <option value="Nonthaburi">Nonthaburi</option>
-                <option value="Pathum Thani">Pathum Thani</option>
+                <option value="">Select Province</option>
+                {THAI_PROVINCES.map(p => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
               </select>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">District</label>
-              <select
+              <input
                 className="w-full px-4 py-3 border rounded-lg"
+                placeholder="District (Amphoe)"
                 value={formData.district}
                 onChange={e => setFormData(prev => ({ ...prev, district: e.target.value }))}
-              >
-                <option value="">Select</option>
-                <option value="Phutthamonthon">Phutthamonthon</option>
-                <option value="Salaya">Salaya</option>
-                <option value="Bang Khae">Bang Khae</option>
-                <option value="Mueang">Mueang</option>
-              </select>
+              />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Sub-District</label>
-              <select
+              <input
                 className="w-full px-4 py-3 border rounded-lg"
+                placeholder="Sub-district (Tambon)"
                 value={formData.subdistrict}
                 onChange={e => setFormData(prev => ({ ...prev, subdistrict: e.target.value }))}
-              >
-                <option value="">Select</option>
-                <option value="Phra Khanong Tai">Phra Khanong Tai</option>
-                <option value="Maha Sawat">Maha Sawat</option>
-                <option value="Salaya">Salaya</option>
-              </select>
+              />
             </div>
 
             <div>
@@ -416,6 +457,81 @@ export const VolunteerForm: React.FC<VolunteerFormProps> = ({ record, onClose })
           </button>
         </div>
       </form>
+
+      {editing && (
+        <div className="mt-10">
+          <h3 className="text-lg font-semibold mb-3">Assigned Patients</h3>
+          <div className="text-sm text-gray-600 mb-4">Patients assigned to {volunteerDisplayName || 'this volunteer'}.</div>
+
+          {/* Assign new patient */}
+          <div className="mb-4 p-3 border border-gray-200 rounded-lg bg-gray-50">
+            <div className="flex flex-col md:flex-row md:items-center gap-3">
+              <input
+                placeholder="Search patients by name or MRN"
+                value={patientSearch}
+                onChange={e => setPatientSearch(e.target.value)}
+                className="flex-1 px-3 py-2 border rounded"
+              />
+              <select
+                className="flex-1 px-3 py-2 border rounded"
+                onChange={e => handleAssignPatient(e.target.value)}
+                defaultValue=""
+              >
+                <option value="" disabled>Assign a patient…</option>
+                {allPatients
+                  .filter((p: any) => {
+                    const t = patientSearch.toLowerCase();
+                    const inText = (p.name || '').toLowerCase().includes(t) || (p.medical_record_number || '').toLowerCase().includes(t);
+                    const alreadyMine = typeof p.assigned_vhv_name === 'string' && p.assigned_vhv_name.toLowerCase().includes(volunteerDisplayName.toLowerCase());
+                    const sameArea = ((p.area_name || '').toLowerCase() === volunteerAreaName) || volunteerAreaName === '';
+                    return inText && !alreadyMine && sameArea;
+                  })
+                  .slice(0, 20)
+                  .map((p: any) => (
+                    <option key={p.id} value={p.id}>{p.name} • {p.medical_record_number}</option>
+                  ))}
+              </select>
+            </div>
+            <div className="text-xs text-gray-500 mt-2">Selecting a patient will immediately assign them to this volunteer. Only patients from the same area are listed.</div>
+          </div>
+
+          {/* Current assignments */}
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">MRN</th>
+                  <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Name</th>
+                  <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Area</th>
+                  <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {assignedPatients.map((p: any) => (
+                  <tr key={p.id}>
+                    <td className="px-4 py-2 text-sm">{p.medical_record_number}</td>
+                    <td className="px-4 py-2 text-sm">{p.name}</td>
+                    <td className="px-4 py-2 text-sm">{p.area_name || '-'}</td>
+                    <td className="px-4 py-2 text-sm">
+                      <button
+                        onClick={() => handleUnassignPatient(p.id)}
+                        className="px-3 py-1 text-red-700 bg-red-50 hover:bg-red-100 rounded"
+                      >
+                        Remove
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {assignedPatients.length === 0 && (
+                  <tr>
+                    <td className="px-4 py-6 text-center text-gray-500" colSpan={4}>No patients assigned.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

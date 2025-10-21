@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { getPatientProfiles, getVolunteers } from '../../lib/dummyDatabase'
 import { PatientProfile } from '../../types'
-import { Plus, Search, User, Calendar, Phone, Eye } from 'lucide-react'
+import { Plus, Search, User, Calendar, Phone, Eye, Activity } from 'lucide-react'
 import { PatientForm } from './PatientForm'
 
 export const PatientList: React.FC = () => {
@@ -14,20 +14,18 @@ export const PatientList: React.FC = () => {
   const [editingPatient, setEditingPatient] = useState<PatientProfile | null>(null)
   const [onlyAssigned, setOnlyAssigned] = useState(false)
   const [myVolunteerName, setMyVolunteerName] = useState<string>('')
-  const [mySubdistrict, setMySubdistrict] = useState<string>('')
+  const [myAreaName, setMyAreaName] = useState<string>('')
 
   useEffect(() => {
     fetchPatients()
-    // For volunteers, load their profile to filter by sub-district
+    // For volunteers, load their profile to filter by same area
     ;(async () => {
       if (user?.role !== 'volunteer') return
       const { data } = await getVolunteers()
       const mine = (data || []).find((v: any) => v.user_id === user.id)
       if (mine) {
         setMyVolunteerName(mine.user?.full_name || mine.name)
-        const parts = (mine.address || '').split(',').map((s: string) => s.trim()).filter(Boolean)
-        const sub = parts.length >= 3 ? parts[parts.length - 3] : ''
-        setMySubdistrict(sub)
+        setMyAreaName(mine.area_name || '')
       }
     })()
   }, [])
@@ -55,14 +53,10 @@ export const PatientList: React.FC = () => {
     const term = searchTerm.toLowerCase()
     let list = patients
 
-    // For volunteers: filter by same sub-district
-    if (user?.role === 'volunteer' && mySubdistrict) {
-      const extractSub = (addr?: string) => {
-        if (!addr) return ''
-        const parts = addr.split(',').map(s => s.trim()).filter(Boolean)
-        return parts.length >= 3 ? parts[parts.length - 3] : ''
-      }
-      list = list.filter(p => extractSub(p.address) === mySubdistrict)
+    // For volunteers: filter by same area (doctor-defined map area)
+    if (user?.role === 'volunteer' && myAreaName) {
+      const area = myAreaName.toLowerCase()
+      list = list.filter(p => (p.area_name || '').toLowerCase() === area)
     }
 
     if (user?.role === 'volunteer' && onlyAssigned && myVolunteerName) {
@@ -76,7 +70,7 @@ export const PatientList: React.FC = () => {
       patient.assigned_doctor?.toLowerCase().includes(term) ||
       patient.doctor_diagnosed.toLowerCase().includes(term)
     )
-  }, [patients, searchTerm, user?.role, onlyAssigned, myVolunteerName, mySubdistrict])
+  }, [patients, searchTerm, user?.role, onlyAssigned, myVolunteerName, myAreaName])
 
   const [page, setPage] = useState(1)
   const pageSize = 10
@@ -91,24 +85,12 @@ export const PatientList: React.FC = () => {
     setPage(1)
   }, [searchTerm])
 
-  const formatType = (p: PatientProfile) => {
-    if (p.patient_categories.critical) return 'Critical'
-    if (p.patient_categories.elderly) return 'Elderly'
-    if (p.patient_categories.pregnant) return 'Pregnant'
-    return 'Normal'
-  }
-
-  const formatCategory = (p: PatientProfile) => {
-    // Simple heuristic: show 'Follow-Up' if last record date exists and is not today; otherwise 'New'
-    try {
-      if (!p.last_record_date) return 'New'
-      const last = new Date(p.last_record_date)
-      const today = new Date()
-      const sameDay = last.toDateString() === today.toDateString()
-      return sameDay ? 'New' : 'Follow-Up'
-    } catch {
-      return 'Follow-Up'
-    }
+  const formatCategories = (p: PatientProfile) => {
+    const labels: string[] = []
+    if (p.patient_categories.critical) labels.push('Critical')
+    if (p.patient_categories.elderly) labels.push('Elderly')
+    if (p.patient_categories.pregnant) labels.push('Pregnant')
+    return labels.length ? labels.join(', ') : 'Normal'
   }
 
   const subArea = (p: PatientProfile) => {
@@ -193,9 +175,7 @@ export const PatientList: React.FC = () => {
                 <tr>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Patient ID</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Name</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Type</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Category</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Sub District/Sub-Area</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Assigned VHV</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Action</th>
                 </tr>
@@ -205,38 +185,36 @@ export const PatientList: React.FC = () => {
                   <tr key={p.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-sm text-gray-700">{p.medical_record_number}</td>
                     <td className="px-4 py-3 text-sm text-gray-900">{p.name}</td>
-                    <td className="px-4 py-3 text-sm">
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs ${
-                          formatType(p) === 'Critical'
-                            ? 'bg-red-100 text-red-700'
-                            : formatType(p) === 'Elderly'
-                            ? 'bg-orange-100 text-orange-700'
-                            : formatType(p) === 'Pregnant'
-                            ? 'bg-pink-100 text-pink-700'
-                            : 'bg-gray-100 text-gray-700'
-                        }`}
-                      >
-                        {formatType(p)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{formatCategory(p)}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{subArea(p)}</td>
+                    <td className="px-4 py-3 text-sm text-gray-700">{formatCategories(p)}</td>
                     <td className="px-4 py-3 text-sm text-gray-700">{p.assigned_vhv_name || '-'}</td>
                     <td className="px-4 py-3 text-sm">
-                      <button
-                        onClick={() => handleEdit(p)}
-                        className="text-sky-700 hover:underline inline-flex items-center gap-1"
-                      >
-                        <Eye className="w-4 h-4" />
-                        View Detail
-                      </button>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => handleEdit(p)}
+                          className="text-sky-700 hover:underline inline-flex items-center gap-1"
+                        >
+                          <Eye className="w-4 h-4" />
+                          View Detail
+                        </button>
+                        <button
+                          onClick={() => { 
+                            localStorage.setItem('records_selected_patient', p.id); 
+                            // Try both custom event and helper for navigation
+                            try { window.dispatchEvent(new CustomEvent('codex:setView', { detail: 'records' })); } catch {}
+                            if ((window as any).setAppView) { (window as any).setAppView('records') }
+                          }}
+                          className="text-green-700 hover:underline inline-flex items-center gap-1"
+                        >
+                          <Activity className="w-4 h-4" />
+                          Records
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
                 {pagePatients.length === 0 && (
                   <tr>
-                    <td className="px-4 py-6 text-center text-gray-500" colSpan={7}>
+                    <td className="px-4 py-6 text-center text-gray-500" colSpan={5}>
                       No patients found.
                     </td>
                   </tr>

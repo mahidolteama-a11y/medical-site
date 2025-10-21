@@ -1,3 +1,5 @@
+import { MapArea } from '../types';
+
 export interface DummyUser {
   id: string;
   email: string;
@@ -196,6 +198,32 @@ export const dummyUsers: DummyUser[] = [
     full_name: 'Dr. Michael Johnson',
     role: 'doctor',
     created_at: '2024-01-19T07:45:00Z'
+  }
+];
+
+// Default map areas (seeded into localStorage on first run)
+// An area polygon roughly around Mahidol University, Salaya
+export const dummyMapAreas: MapArea[] = [
+  {
+    id: 'area-default-salaya',
+    name: 'Mahidol University Salaya',
+    color: '#F97316',
+    geometry: {
+      type: 'Polygon',
+      coordinates: [[
+        // Rough bounding polygon around MU Salaya campus
+        [13.8070, 100.3198],
+        [13.8068, 100.3278],
+        [13.8002, 100.3318],
+        [13.7915, 100.3306],
+        [13.7870, 100.3230],
+        [13.7900, 100.3160],
+        [13.7970, 100.3135],
+      ]]
+    },
+    created_by: '550e8400-e29b-41d4-a716-446655440001', // Dr. Sarah Smith
+    created_at: '2024-01-20T08:00:00Z',
+    updated_at: '2024-01-20T08:00:00Z'
   }
 ];
 

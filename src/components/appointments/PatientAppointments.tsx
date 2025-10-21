@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
-import { getPatientProfileByUserId, getTasks, getUsers, createTask, sendMessageToDatabase } from '../../lib/dummyDatabase'
+import { getPatientProfileByUserId, getTasks, getUsers, createTask, sendMessageToDatabase, updateTask } from '../../lib/dummyDatabase'
 import type { Task, User } from '../../types'
 import { CalendarDays, MessageSquare, Plus, Calendar, User as UserIcon } from 'lucide-react'
 
@@ -11,7 +11,7 @@ export const PatientAppointments: React.FC = () => {
   const [appointments, setAppointments] = useState<Task[]>([])
   const [showRequest, setShowRequest] = useState(false)
   const [doctors, setDoctors] = useState<User[]>([])
-  const [form, setForm] = useState({ doctorId: '', date: '', message: '' })
+  const [form, setForm] = useState({ doctorId: '', date: '', time: '09:00', title: '', message: '' })
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -35,6 +35,17 @@ export const PatientAppointments: React.FC = () => {
     })()
   }, [user])
 
+  // Auto-refresh appointments to reflect doctor approvals
+  useEffect(() => {
+    if (!patientId) return
+    const id = setInterval(async () => {
+      const { data: allTasks } = await getTasks()
+      const mine = (allTasks || []).filter(t => t.patient_id === patientId)
+      setAppointments(mine)
+    }, 8000)
+    return () => clearInterval(id)
+  }, [patientId])
+
   const todayStart = useMemo(() => {
     const d = new Date()
     d.setHours(0, 0, 0, 0)
@@ -44,16 +55,27 @@ export const PatientAppointments: React.FC = () => {
   const grouped = useMemo(() => {
     const overdue: Task[] = []
     const upcoming: Task[] = []
+    const completed: Task[] = []
+    const cancelled: Task[] = []
     const undated: Task[] = []
     for (const t of appointments) {
       if (!t.due_date) {
+        // Keep undated items separate
         undated.push(t)
         continue
       }
       const ts = new Date(t.due_date).getTime()
-      const isDone = t.status === 'completed' || t.status === 'cancelled'
-      if (!isDone && ts < todayStart) overdue.push(t)
-      else upcoming.push(t)
+      if (t.status === 'completed') {
+        completed.push(t)
+      } else if (t.status === 'cancelled') {
+        cancelled.push(t)
+      } else if (ts < todayStart) {
+        // past date and not completed/cancelled
+        overdue.push(t)
+      } else {
+        // upcoming for active statuses (pending/in_progress)
+        upcoming.push(t)
+      }
     }
     const byDateAsc = (a: Task, b: Task) => {
       const ad = a.due_date ? new Date(a.due_date).getTime() : 0
@@ -63,9 +85,20 @@ export const PatientAppointments: React.FC = () => {
     return {
       overdue: overdue.sort(byDateAsc),
       upcoming: upcoming.sort(byDateAsc),
+      completed: completed.sort(byDateAsc),
+      cancelled: cancelled.sort(byDateAsc),
       undated
     }
   }, [appointments, todayStart])
+
+  const cancelAppt = async (id: string) => {
+    if (!id) return
+    if (!window.confirm('Cancel this appointment?')) return
+    await updateTask(id, { status: 'cancelled' } as any)
+    const { data: allTasks } = await getTasks()
+    const mine = (allTasks || []).filter(t => t.patient_id === patientId)
+    setAppointments(mine)
+  }
 
   const submitRequest = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -74,7 +107,7 @@ export const PatientAppointments: React.FC = () => {
     setSaving(true)
     try {
       await createTask({
-        title: 'Appointment Request',
+        title: form.title || 'Appointment Request',
         description: form.message || 'Patient requested an appointment',
         priority: 'medium',
         status: 'pending',
@@ -82,6 +115,7 @@ export const PatientAppointments: React.FC = () => {
         assigned_by: user.id,
         patient_id: patientId,
         due_date: form.date,
+        due_time: form.time,
       } as any)
       await sendMessageToDatabase({
         sender_id: user.id,
@@ -90,7 +124,7 @@ export const PatientAppointments: React.FC = () => {
         content: `Patient requests an appointment on ${form.date}.\n\nMessage: ${form.message || '(no additional message)'}\n`,
       } as any)
       setShowRequest(false)
-      setForm({ doctorId: '', date: '', message: '' })
+      setForm({ doctorId: '', date: '', time: '09:00', title: '', message: '' })
       const { data: allTasks } = await getTasks()
       const mine = (allTasks || []).filter(t => t.patient_id === patientId)
       setAppointments(mine)
@@ -135,11 +169,14 @@ export const PatientAppointments: React.FC = () => {
                         <div className="font-semibold text-gray-900">{appt.title || 'Appointment'}</div>
                         <div className="text-sm text-gray-600 mt-1">{appt.description}</div>
                         <div className="flex items-center gap-3 text-sm text-gray-700 mt-2">
-                          <Calendar className="w-4 h-4" /> {appt.due_date ? new Date(appt.due_date).toLocaleDateString() : '—'}
+                          <Calendar className="w-4 h-4" /> {appt.due_date ? new Date(appt.due_date).toLocaleDateString() : '—'} {appt.due_time ? ` ${appt.due_time}` : ''}
                           {appt.assigned_to_user && <><span>•</span><UserIcon className="w-4 h-4" /> {appt.assigned_to_user.full_name}</>}
                         </div>
                       </div>
-                      <div className="px-2 py-1 rounded-full text-xs font-medium border bg-red-50 text-red-800 border-red-200 h-fit">Overdue</div>
+                      <div className="flex items-center gap-2">
+                        <div className="px-2 py-1 rounded-full text-xs font-medium border bg-red-50 text-red-800 border-red-200 h-fit">Overdue</div>
+                        <button onClick={() => cancelAppt(appt.id)} className="px-3 py-1 bg-red-600 text-white text-xs rounded">Cancel</button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -158,11 +195,60 @@ export const PatientAppointments: React.FC = () => {
                         <div className="font-semibold text-gray-900">{appt.title || 'Appointment'}</div>
                         <div className="text-sm text-gray-600 mt-1">{appt.description}</div>
                         <div className="flex items-center gap-3 text-sm text-gray-700 mt-2">
-                          <Calendar className="w-4 h-4" /> {appt.due_date ? new Date(appt.due_date).toLocaleDateString() : '—'}
+                          <Calendar className="w-4 h-4" /> {appt.due_date ? new Date(appt.due_date).toLocaleDateString() : '—'} {appt.due_time ? ` ${appt.due_time}` : ''}
                           {appt.assigned_to_user && <><span>•</span><UserIcon className="w-4 h-4" /> {appt.assigned_to_user.full_name}</>}
                         </div>
                       </div>
-                      <div className="px-2 py-1 rounded-full text-xs font-medium border bg-blue-50 text-blue-800 border-blue-200 h-fit">{appt.status.replace('_',' ')}</div>
+                      <div className="flex items-center gap-2">
+                        <div className="px-2 py-1 rounded-full text-xs font-medium border bg-blue-50 text-blue-800 border-blue-200 h-fit">{appt.status.replace('_',' ')}</div>
+                        <button onClick={() => cancelAppt(appt.id)} className="px-3 py-1 bg-red-600 text-white text-xs rounded">Cancel</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {grouped.completed.length > 0 && (
+            <div>
+              <div className="text-sm font-semibold text-gray-700 mb-2">Completed</div>
+              <div className="space-y-3">
+                {grouped.completed.map(appt => (
+                  <div key={appt.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="font-semibold text-gray-900">{appt.title || 'Appointment'}</div>
+                        <div className="text-sm text-gray-600 mt-1">{appt.description}</div>
+                        <div className="flex items-center gap-3 text-sm text-gray-700 mt-2">
+                          <Calendar className="w-4 h-4" /> {appt.due_date ? new Date(appt.due_date).toLocaleDateString() : '—'} {appt.due_time ? ` ${appt.due_time}` : ''}
+                          {appt.assigned_to_user && <><span>•</span><UserIcon className="w-4 h-4" /> {appt.assigned_to_user.full_name}</>}
+                        </div>
+                      </div>
+                      <div className="px-2 py-1 rounded-full text-xs font-medium border bg-green-50 text-green-800 border-green-200 h-fit">Completed</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {grouped.cancelled.length > 0 && (
+            <div>
+              <div className="text-sm font-semibold text-gray-700 mb-2">Cancelled</div>
+              <div className="space-y-3">
+                {grouped.cancelled.map(appt => (
+                  <div key={appt.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="font-semibold text-gray-900">{appt.title || 'Appointment'}</div>
+                        <div className="text-sm text-gray-600 mt-1">{appt.description}</div>
+                        <div className="flex items-center gap-3 text-sm text-gray-700 mt-2">
+                          <Calendar className="w-4 h-4" /> {appt.due_date ? new Date(appt.due_date).toLocaleDateString() : '—'} {appt.due_time ? ` ${appt.due_time}` : ''}
+                          {appt.assigned_to_user && <><span>•</span><UserIcon className="w-4 h-4" /> {appt.assigned_to_user.full_name}</>}
+                        </div>
+                      </div>
+                      <div className="px-2 py-1 rounded-full text-xs font-medium border bg-gray-50 text-gray-800 border-gray-200 h-fit">Cancelled</div>
                     </div>
                   </div>
                 ))}
@@ -185,7 +271,10 @@ export const PatientAppointments: React.FC = () => {
                           {appt.assigned_to_user && <><span>•</span><UserIcon className="w-4 h-4" /> {appt.assigned_to_user.full_name}</>}
                         </div>
                       </div>
-                      <div className="px-2 py-1 rounded-full text-xs font-medium border bg-blue-50 text-blue-800 border-blue-200 h-fit">{appt.status.replace('_',' ')}</div>
+                      <div className="flex items-center gap-2">
+                        <div className="px-2 py-1 rounded-full text-xs font-medium border bg-blue-50 text-blue-800 border-blue-200 h-fit">{appt.status.replace('_',' ')}</div>
+                        <button onClick={() => cancelAppt(appt.id)} className="px-3 py-1 bg-red-600 text-white text-xs rounded">Cancel</button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -210,7 +299,14 @@ export const PatientAppointments: React.FC = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Preferred Date</label>
-              <input type="date" className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} required />
+              <div className="flex gap-2">
+                <input type="date" className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} required />
+                <input type="time" className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" value={form.time} onChange={e => setForm({ ...form, time: e.target.value })} required />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+              <input type="text" className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="e.g., Follow-up consultation" required />
             </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">Message (optional)</label>

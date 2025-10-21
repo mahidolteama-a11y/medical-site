@@ -8,11 +8,13 @@ import { PatientList } from './components/patients/PatientList'
 import { PatientProfile } from './components/patients/PatientProfile'
 import { MessageCenter } from './components/messages/MessageCenter'
 import { TaskList } from './components/tasks/TaskList'
+import DoctorTasks from './components/tasks/DoctorTasks'
 import VolunteerTaskManager from './components/tasks/VolunteerTaskManager'
 import VolunteerMyTasks from './components/tasks/VolunteerMyTasks'
 import { MapPage } from './components/map/MapPage'
 import { DailyRecordList } from './components/records/DailyRecordList'
 import PatientAppointments from './components/appointments/PatientAppointments'
+import VolunteerAppointments from './components/appointments/VolunteerAppointments'
 import { VolunteerListPage } from './components/volunteers/VolunteerList'
 import { UserProfile } from './components/profile/UserProfile'
 import { clearInvalidSession } from './lib/sessionValidator'
@@ -24,6 +26,15 @@ function AppContent() {
 
   useEffect(() => {
     clearInvalidSession();
+    // expose simple navigation hook for internal actions (e.g., Records button)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).setAppView = (v: string) => setCurrentView(v)
+    const onSetView = (e: any) => {
+      const v = e?.detail
+      if (typeof v === 'string') setCurrentView(v)
+    }
+    window.addEventListener('codex:setView', onSetView)
+    return () => window.removeEventListener('codex:setView', onSetView)
   }, []);
 
   if (loading) {
@@ -49,11 +60,7 @@ function AppContent() {
       case 'messages':
         return <MessageCenter />
       case 'tasks':
-        return user.role === 'volunteer' ? (
-          <VolunteerMyTasks />
-        ) : (
-          <TaskList personalOnly title="My Tasks" />
-        )
+        return user.role === 'volunteer' ? <VolunteerMyTasks /> : user.role === 'doctor' ? <DoctorTasks /> : <TaskList personalOnly title="My Tasks" />
       case 'volunteer-tasks':
         return user.role === 'doctor' ? <VolunteerTaskManager /> : <TaskList />
       case 'volunteers':
@@ -63,7 +70,7 @@ function AppContent() {
       case 'records':
         return <DailyRecordList />
       case 'appointments':
-        return user.role === 'patient' ? <PatientAppointments /> : <Dashboard />
+        return user.role === 'patient' ? <PatientAppointments /> : user.role === 'volunteer' ? <VolunteerAppointments /> : <Dashboard />
       case 'user-profile':
         return <UserProfile />
       default:

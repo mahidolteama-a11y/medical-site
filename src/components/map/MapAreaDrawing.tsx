@@ -94,7 +94,7 @@ export const MapAreaDrawing: React.FC<MapAreaDrawingProps> = ({ onClose, onAreaC
       name: newAreaName,
       color: newAreaColor,
       geometry,
-      created_by: user?.id || null
+      created_by: user?.id || ''
     });
 
     if (error) {

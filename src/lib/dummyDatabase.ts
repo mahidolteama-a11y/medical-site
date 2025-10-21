@@ -15,7 +15,8 @@ import {
   dummyLocations,
   DummyLocation,
   generateId,
-  getCurrentTimestamp 
+  getCurrentTimestamp,
+  dummyMapAreas,
 } from '../data/dummyData';
 import { VolunteerProfile } from '../types';
 
@@ -172,7 +173,16 @@ export const getVolunteers = async () => {
       .filter(u => u.role === 'volunteer')
       .map((u, idx) => {
         const loc = (dummyLocations || []).find(l => l.user_id === u.id)
-        return {
+        // Default to center of first default area if present (for Maria)
+        const defaultArea = (dummyMapAreas || [])[0]
+        const center = defaultArea ? (() => {
+          const coords = defaultArea.geometry.coordinates[0] || []
+          const lat = coords.reduce((s,c)=>s+(c?.[0]||0),0) / (coords.length || 1)
+          const lng = coords.reduce((s,c)=>s+(c?.[1]||0),0) / (coords.length || 1)
+          return { lat, lng }
+        })() : undefined
+
+        const base: VolunteerProfile = {
           id: generateId(),
           user_id: u.id,
           volunteer_code: formatVolunteerCode(idx + 1),
@@ -185,6 +195,18 @@ export const getVolunteers = async () => {
           created_at: getCurrentTimestamp(),
           updated_at: getCurrentTimestamp(),
         } as VolunteerProfile
+
+        // Assign default area to our default volunteer (Maria Garcia)
+        if ((u.email || '').toLowerCase() === 'volunteer@hospital.com' && defaultArea) {
+          base.area_id = defaultArea.id
+          base.area_name = defaultArea.name
+          if (!base.lat || !base.lng) {
+            base.lat = center?.lat
+            base.lng = center?.lng
+          }
+        }
+
+        return base
       })
     if (seedList.length > 0) {
       persistentVolunteers = seedList

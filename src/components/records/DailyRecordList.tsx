@@ -16,6 +16,12 @@ export const DailyRecordList: React.FC = () => {
   const [editingRecord, setEditingRecord] = useState<DailyRecord | null>(null)
 
   useEffect(() => {
+    // Preselect patient from navigation hint
+    const preset = localStorage.getItem('records_selected_patient')
+    if (preset) {
+      setSelectedPatient(preset)
+      localStorage.removeItem('records_selected_patient')
+    }
     fetchRecords()
     if (user?.role !== 'patient') {
       fetchPatients()
@@ -24,15 +30,18 @@ export const DailyRecordList: React.FC = () => {
 
   const fetchRecords = async () => {
     try {
-      const { data, error } = await getDailyRecords(
-        undefined, 
-        user?.role === 'patient' ? user.id : undefined
-      )
+      const { data, error } = await getDailyRecords(undefined, user?.role === 'patient' ? user.id : undefined)
 
       if (error) {
         console.error('Error fetching daily records:', error)
       } else {
-        setRecords(data || [])
+        let list = data || []
+        // Volunteers see only records of their assigned patients
+        if (user?.role === 'volunteer') {
+          const myName = (user.full_name || '').toLowerCase()
+          list = list.filter((r:any)=> r.patient && typeof r.patient.assigned_vhv_name === 'string' && r.patient.assigned_vhv_name.toLowerCase().includes(myName))
+        }
+        setRecords(list as any)
       }
     } catch (error) {
       console.error('Error fetching daily records:', error)
@@ -47,7 +56,13 @@ export const DailyRecordList: React.FC = () => {
       if (error) {
         console.error('Error fetching patients:', error)
       } else {
-        setPatients(data || [])
+        if (user?.role === 'volunteer') {
+          const myName = (user.full_name || '').toLowerCase()
+          const assigned = (data || []).filter((p:any)=> typeof p.assigned_vhv_name === 'string' && p.assigned_vhv_name.toLowerCase().includes(myName))
+          setPatients(assigned as any)
+        } else {
+          setPatients(data || [])
+        }
       }
     } catch (error) {
       console.error('Error fetching patients:', error)
@@ -168,13 +183,13 @@ export const DailyRecordList: React.FC = () => {
               className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
             >
               <option value="all">All Patients</option>
-              {patients.map((patient) => (
-                <option key={patient.id} value={patient.id}>
-                  {patient.name} - {patient.medical_record_number}
-                </option>
-              ))}
-            </select>
-          )}
+          {patients.map((patient) => (
+            <option key={patient.id} value={patient.id}>
+              {patient.name} - {patient.medical_record_number}
+            </option>
+          ))}
+        </select>
+      )}
         </div>
       </div>
 
@@ -201,20 +216,24 @@ export const DailyRecordList: React.FC = () => {
                 </div>
               </div>
               <div className="flex space-x-2">
-                <button
-                  onClick={() => handleEdit(record)}
-                  className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all"
-                  title="Edit Record"
-                >
-                  <Edit className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => handleDelete(record.id)}
-                  className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                  title="Delete Record"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                {(user?.role === 'doctor' || record.recorded_by === user?.id) && (
+                  <button
+                    onClick={() => handleEdit(record)}
+                    className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all"
+                    title="Edit Record"
+                  >
+                    <Edit className="w-4 h-4" />
+                  </button>
+                )}
+                {(user?.role === 'doctor' || record.recorded_by === user?.id) && (
+                  <button
+                    onClick={() => handleDelete(record.id)}
+                    className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                    title="Delete Record"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             </div>
 
@@ -291,6 +310,31 @@ export const DailyRecordList: React.FC = () => {
                   <p className="text-sm text-gray-900 mt-1 line-clamp-2">
                     {record.notes}
                   </p>
+                </div>
+              )}
+
+              {record.dr_instructions && (
+                <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="text-sm font-semibold text-blue-900">Doctor Instructions</div>
+                  <div className="text-sm text-blue-800 mt-1 whitespace-pre-wrap">{record.dr_instructions}</div>
+                </div>
+              )}
+
+              {Array.isArray((record as any).custom_fields) && ((record as any).custom_fields as any[]).length > 0 && (
+                <div className="mt-2">
+                  <div className="text-sm font-semibold text-gray-800 mb-1">Additional Information</div>
+                  <div className="space-y-1 text-sm">
+                    {((record as any).custom_fields as any[]).map((f:any)=>{
+                      const val = (record as any).custom_values ? (record as any).custom_values[f.id] : undefined
+                      const display = Array.isArray(val) ? val.join(', ') : (val ?? '')
+                      return (
+                        <div key={f.id} className="flex justify-between gap-3">
+                          <span className="text-gray-600">{f.label}</span>
+                          <span className="text-gray-900 text-right break-words">{String(display) || '—'}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
               )}
             </div>

@@ -50,6 +50,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, mob
       if (user?.role === 'doctor') {
         baseItems.splice(2, 0, { key: 'volunteers', label: 'Volunteers', icon: CheckSquare })
       }
+      if (user?.role === 'volunteer') {
+        const idx = baseItems.findIndex(i => i.key === 'tasks')
+        baseItems.splice(idx+1, 0, { key: 'appointments', label: 'Appointments', icon: CalendarDays })
+      }
     } else if (user?.role === 'patient') {
       baseItems.splice(1, 0, { key: 'profile', label: 'My Profile', icon: FileText })
       const idx = baseItems.findIndex(i => i.key === 'tasks')

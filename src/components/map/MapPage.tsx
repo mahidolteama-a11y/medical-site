@@ -40,7 +40,10 @@ export const MapPage: React.FC<MapPageProps> = ({ onBack }) => {
   const [geoError, setGeoError] = useState<string | null>(null)
   const [center, setCenter] = useState<[number, number]>(SALAYA)
   const [assignedPatients, setAssignedPatients] = useState<any[]>([])
-  const [mySubdistrict, setMySubdistrict] = useState<string>('')
+  const [areaPatients, setAreaPatients] = useState<any[]>([])
+  const [areaVolunteers, setAreaVolunteers] = useState<any[]>([])
+  const [myAreaName, setMyAreaName] = useState<string>('')
+  const [myProfilePos, setMyProfilePos] = useState<[number, number] | null>(null)
   const [areas, setAreas] = useState<MapArea[]>([])
   const [showAreas, setShowAreas] = useState(true)
   const [showAreaManager, setShowAreaManager] = useState(false)
@@ -64,49 +67,58 @@ export const MapPage: React.FC<MapPageProps> = ({ onBack }) => {
   useEffect(() => {
     ;(async () => {
       if (user?.role !== 'volunteer') return
-      const { data } = await getPatientProfiles()
+      const [{ data: pats }, vols] = await Promise.all([getPatientProfiles(), getVolunteers()])
+      const me = (vols.data || []).find((v: any) => v.user_id === user.id)
+      const myArea = (me?.area_name || '').toLowerCase()
+      setMyAreaName(me?.area_name || '')
+      setMyProfilePos(me?.lat && me?.lng ? [me.lat, me.lng] : null)
+
+      // Patients assigned to me (by name match as before)
       const fullName = user.full_name
-      const mine = (data || []).filter((p: any) =>
+      const mineAssigned = (pats || []).filter((p: any) =>
         typeof p.assigned_vhv_name === 'string' && p.assigned_vhv_name.toLowerCase().includes(fullName.toLowerCase())
       )
-      // Get volunteer sub-district from volunteer profile address
-      const vols = await getVolunteers()
-      const me = (vols.data || []).find((v: any) => v.user_id === user.id)
-      const extractSub = (addr?: string) => {
-        if (!addr) return ''
-        const parts = addr.split(',').map((s: string)=>s.trim()).filter(Boolean)
-        return parts.length >= 3 ? parts[parts.length - 3] : ''
-      }
-      const sub = extractSub(me?.address)
-      setMySubdistrict(sub)
-      // Filter assigned patients to same sub-district
-      const filteredMine = mine.filter((p: any) => extractSub(p.address) === sub)
-      setAssignedPatients(filteredMine)
+      setAssignedPatients(mineAssigned)
+
+      // All patients in my area
+      const sameAreaPatients = (pats || []).filter((p: any) => (p.area_name || '').toLowerCase() === myArea)
+      setAreaPatients(sameAreaPatients)
+
+      // Volunteers in my area (including me)
+      const sameAreaVols = (vols.data || []).filter((v: any) => (v.area_name || '').toLowerCase() === myArea)
+      setAreaVolunteers(sameAreaVols)
     })()
   }, [user])
 
   const filtered = useMemo(() => {
     return (locations || []).filter((loc) => {
+      // When viewing "My Patients", hide all POIs (hospitals/centers/volunteers)
+      if (filter === 'patients') return false
       if (filter !== 'all' && filter !== 'patients' && loc.type !== filter) return false
-      const origin = userPos || SALAYA
+      // For volunteers on 'all', hide static volunteer markers; we'll overlay real area volunteers
+      if (user?.role === 'volunteer' && filter === 'all' && loc.type === 'volunteer') return false
+      const origin = userPos || myProfilePos || SALAYA
       const d = haversineKm(origin, [loc.lat, loc.lng])
       return d <= radiusKm
     })
-  }, [locations, filter, radiusKm, userPos])
+  }, [locations, filter, radiusKm, userPos, myProfilePos, user])
 
-  const filteredPatients = useMemo(() => {
+  const patientsToShow = useMemo(() => {
     if (user?.role !== 'volunteer') return [] as any[]
-    const origin = userPos || SALAYA
-    const extractSub = (addr?: string) => {
-      if (!addr) return ''
-      const parts = addr.split(',').map((s: string)=>s.trim()).filter(Boolean)
-      return parts.length >= 3 ? parts[parts.length - 3] : ''
-    }
-    return (assignedPatients || [])
-      .filter((p: any) => extractSub(p.address) === mySubdistrict)
+    const origin = userPos || myProfilePos || SALAYA
+    const base = filter === 'patients' ? (assignedPatients || []) : (areaPatients || [])
+    return base
       .filter((p: any) => typeof p.lat === 'number' && typeof p.lng === 'number')
       .filter((p: any) => haversineKm(origin, [p.lat, p.lng]) <= radiusKm)
-  }, [assignedPatients, mySubdistrict, userPos, radiusKm, user])
+  }, [assignedPatients, areaPatients, filter, userPos, myProfilePos, radiusKm, user])
+
+  const volunteersToShow = useMemo(() => {
+    if (user?.role !== 'volunteer' || filter !== 'all') return [] as any[]
+    const origin = userPos || myProfilePos || SALAYA
+    return (areaVolunteers || [])
+      .filter((v: any) => typeof v.lat === 'number' && typeof v.lng === 'number')
+      .filter((v: any) => haversineKm(origin, [v.lat, v.lng]) <= radiusKm)
+  }, [areaVolunteers, filter, userPos, myProfilePos, radiusKm, user])
 
   const colorByType = (t: string) =>
     t === 'volunteer' ? '#22c55e' : t === 'center' ? '#0ea5e9' : '#ef4444'
@@ -237,11 +249,19 @@ export const MapPage: React.FC<MapPageProps> = ({ onBack }) => {
                 )
               })}
 
-              {/* Show current user location if available */}
+              {/* Show browser location if available */}
               {userPos && (
                 <Marker position={userPos} icon={myLocationIcon}>
                   <Popup>
                     <div className="font-semibold">You are here</div>
+                  </Popup>
+                </Marker>
+              )}
+              {/* Show volunteer profile's saved location if available (and no browser geo) */}
+              {!userPos && myProfilePos && (
+                <Marker position={myProfilePos} icon={myLocationIcon}>
+                  <Popup>
+                    <div className="font-semibold">Your saved location</div>
                   </Popup>
                 </Marker>
               )}
@@ -258,8 +278,8 @@ export const MapPage: React.FC<MapPageProps> = ({ onBack }) => {
                 </CircleMarker>
               ))}
 
-              {/* Assigned patients for volunteers */}
-              {user?.role === 'volunteer' && (filter === 'all' || filter === 'patients') && filteredPatients.map((p: any) => (
+              {/* Patients overlay for volunteers */}
+              {user?.role === 'volunteer' && (filter === 'all' || filter === 'patients') && patientsToShow.map((p: any) => (
                 <Marker key={`pat-${p.id}`} position={[p.lat, p.lng]} icon={L.divIcon({
                   className: 'custom-patient-icon',
                   html: `<div style=\"display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:#a21caf;border:2px solid #fff;box-shadow:0 0 0 3px rgba(162,28,175,0.25);color:#fff;font-size:14px;line-height:1\">👤</div>`,
@@ -271,6 +291,23 @@ export const MapPage: React.FC<MapPageProps> = ({ onBack }) => {
                       <div className="text-xs text-gray-600">Patient</div>
                       <div className="text-xs text-gray-700">MRN: {p.medical_record_number}</div>
                       {p.phone_number && <div className="text-xs text-gray-700">📞 {p.phone_number}</div>}
+                    </div>
+                  </Popup>
+                </Marker>
+              ))}
+
+              {/* Volunteers overlay for volunteers (same area) */}
+              {user?.role === 'volunteer' && filter === 'all' && volunteersToShow.map((v: any) => (
+                <Marker key={`vol-${v.id}`} position={[v.lat, v.lng]} icon={L.divIcon({
+                  className: 'custom-volunteer-icon',
+                  html: `<div style=\"display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:#22c55e;border:2px solid #fff;box-shadow:0 0 0 3px rgba(34,197,94,0.25);color:#fff;font-size:14px;line-height:1\">🤝</div>`,
+                  iconSize: [26,26], iconAnchor: [13,13], popupAnchor: [0,-13]
+                })}>
+                  <Popup>
+                    <div className="space-y-1">
+                      <div className="font-semibold">{v.name}</div>
+                      <div className="text-xs text-gray-600">Volunteer</div>
+                      {v.email && <div className="text-xs text-gray-700">{v.email}</div>}
                     </div>
                   </Popup>
                 </Marker>
