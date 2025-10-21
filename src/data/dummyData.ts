@@ -1069,8 +1069,6 @@ export interface DummyLocation {
 export const dummyLocations: DummyLocation[] = [
   // Volunteers (user-3 is Maria Garcia)
   { id: 'loc-v-1', type: 'volunteer', name: 'Maria Garcia (Volunteer)', lat: 13.8005, lng: 100.3231, address: 'Near Salaya Market', user_id: 'user-3' },
-  { id: 'loc-v-2', type: 'volunteer', name: 'Volunteer Team A', lat: 13.7892, lng: 100.3148, address: 'Phutthamonthon Sai 4', phone: '+66 2 123 4567' },
-  { id: 'loc-v-3', type: 'volunteer', name: 'Volunteer Team B', lat: 13.7840, lng: 100.3295, address: 'Salaya Station', phone: '+66 2 765 4321' },
 
   // Health centers
   { id: 'loc-c-1', type: 'center', name: 'Community Health Center - Salaya', lat: 13.7963, lng: 100.3127, address: 'Salaya Rd', phone: '+66 2 555 0101' },

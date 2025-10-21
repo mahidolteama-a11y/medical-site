@@ -66,27 +66,32 @@ export const MapPage: React.FC<MapPageProps> = ({ onBack }) => {
 
   useEffect(() => {
     ;(async () => {
-      if (user?.role !== 'volunteer') return
-      const [{ data: pats }, vols] = await Promise.all([getPatientProfiles(), getVolunteers()])
-      const me = (vols.data || []).find((v: any) => v.user_id === user.id)
-      const myArea = (me?.area_name || '').toLowerCase()
-      setMyAreaName(me?.area_name || '')
-      setMyProfilePos(me?.lat && me?.lng ? [me.lat, me.lng] : null)
+      if (user?.role === 'volunteer') {
+        const [{ data: pats }, vols] = await Promise.all([getPatientProfiles(), getVolunteers()])
+        const me = (vols.data || []).find((v: any) => v.user_id === user.id)
+        const myArea = (me?.area_name || '').toLowerCase()
+        setMyAreaName(me?.area_name || '')
+        setMyProfilePos(me?.lat && me?.lng ? [me.lat, me.lng] : null)
 
-      // Patients assigned to me (by name match as before)
-      const fullName = user.full_name
-      const mineAssigned = (pats || []).filter((p: any) =>
-        typeof p.assigned_vhv_name === 'string' && p.assigned_vhv_name.toLowerCase().includes(fullName.toLowerCase())
-      )
-      setAssignedPatients(mineAssigned)
+        // Patients assigned to me (by name match as before)
+        const fullName = user.full_name
+        const mineAssigned = (pats || []).filter((p: any) =>
+          typeof p.assigned_vhv_name === 'string' && p.assigned_vhv_name.toLowerCase().includes(fullName.toLowerCase())
+        )
+        setAssignedPatients(mineAssigned)
 
-      // All patients in my area
-      const sameAreaPatients = (pats || []).filter((p: any) => (p.area_name || '').toLowerCase() === myArea)
-      setAreaPatients(sameAreaPatients)
+        // All patients in my area
+        const sameAreaPatients = (pats || []).filter((p: any) => (p.area_name || '').toLowerCase() === myArea)
+        setAreaPatients(sameAreaPatients)
 
-      // Volunteers in my area (including me)
-      const sameAreaVols = (vols.data || []).filter((v: any) => (v.area_name || '').toLowerCase() === myArea)
-      setAreaVolunteers(sameAreaVols)
+        // Volunteers in my area (including me)
+        const sameAreaVols = (vols.data || []).filter((v: any) => (v.area_name || '').toLowerCase() === myArea)
+        setAreaVolunteers(sameAreaVols)
+      } else if (user?.role === 'doctor' || user?.role === 'patient') {
+        const [{ data: pats }, vols] = await Promise.all([getPatientProfiles(), getVolunteers()])
+        setAreaPatients(pats || [])
+        setAreaVolunteers(vols.data || [])
+      }
     })()
   }, [user])
 
@@ -95,13 +100,13 @@ export const MapPage: React.FC<MapPageProps> = ({ onBack }) => {
       // When viewing "My Patients", hide all POIs (hospitals/centers/volunteers)
       if (filter === 'patients') return false
       if (filter !== 'all' && filter !== 'patients' && loc.type !== filter) return false
-      // For volunteers on 'all', hide static volunteer markers; we'll overlay real area volunteers
-      if (user?.role === 'volunteer' && filter === 'all' && loc.type === 'volunteer') return false
+      // Hide static volunteer markers since we'll show real volunteers from database
+      if (loc.type === 'volunteer') return false
       const origin = userPos || myProfilePos || SALAYA
       const d = haversineKm(origin, [loc.lat, loc.lng])
       return d <= radiusKm
     })
-  }, [locations, filter, radiusKm, userPos, myProfilePos, user])
+  }, [locations, filter, radiusKm, userPos, myProfilePos])
 
   const patientsToShow = useMemo(() => {
     if (user?.role !== 'volunteer') return [] as any[]
@@ -113,12 +118,15 @@ export const MapPage: React.FC<MapPageProps> = ({ onBack }) => {
   }, [assignedPatients, areaPatients, filter, userPos, myProfilePos, radiusKm, user])
 
   const volunteersToShow = useMemo(() => {
-    if (user?.role !== 'volunteer' || filter !== 'all') return [] as any[]
-    const origin = userPos || myProfilePos || SALAYA
-    return (areaVolunteers || [])
-      .filter((v: any) => typeof v.lat === 'number' && typeof v.lng === 'number')
-      .filter((v: any) => haversineKm(origin, [v.lat, v.lng]) <= radiusKm)
-  }, [areaVolunteers, filter, userPos, myProfilePos, radiusKm, user])
+    if (filter === 'patients') return [] as any[]
+    if (filter === 'volunteer' || filter === 'all') {
+      const origin = userPos || myProfilePos || SALAYA
+      return (areaVolunteers || [])
+        .filter((v: any) => typeof v.lat === 'number' && typeof v.lng === 'number')
+        .filter((v: any) => haversineKm(origin, [v.lat, v.lng]) <= radiusKm)
+    }
+    return [] as any[]
+  }, [areaVolunteers, filter, userPos, myProfilePos, radiusKm])
 
   const colorByType = (t: string) =>
     t === 'volunteer' ? '#22c55e' : t === 'center' ? '#0ea5e9' : '#ef4444'
@@ -296,8 +304,8 @@ export const MapPage: React.FC<MapPageProps> = ({ onBack }) => {
                 </Marker>
               ))}
 
-              {/* Volunteers overlay for volunteers (same area) */}
-              {user?.role === 'volunteer' && filter === 'all' && volunteersToShow.map((v: any) => (
+              {/* Volunteers overlay */}
+              {volunteersToShow.map((v: any) => (
                 <Marker key={`vol-${v.id}`} position={[v.lat, v.lng]} icon={L.divIcon({
                   className: 'custom-volunteer-icon',
                   html: `<div style=\"display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:#22c55e;border:2px solid #fff;box-shadow:0 0 0 3px rgba(34,197,94,0.25);color:#fff;font-size:14px;line-height:1\">🤝</div>`,
@@ -307,7 +315,9 @@ export const MapPage: React.FC<MapPageProps> = ({ onBack }) => {
                     <div className="space-y-1">
                       <div className="font-semibold">{v.name}</div>
                       <div className="text-xs text-gray-600">Volunteer</div>
+                      <div className="text-xs text-gray-700">Code: {v.volunteer_code}</div>
                       {v.email && <div className="text-xs text-gray-700">{v.email}</div>}
+                      {v.phone && <div className="text-xs text-gray-700">📞 {v.phone}</div>}
                     </div>
                   </Popup>
                 </Marker>
