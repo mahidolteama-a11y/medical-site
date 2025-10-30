@@ -11,8 +11,9 @@ export const PatientAppointments: React.FC = () => {
   const [appointments, setAppointments] = useState<Task[]>([])
   const [showRequest, setShowRequest] = useState(false)
   const [doctors, setDoctors] = useState<User[]>([])
-  const [form, setForm] = useState({ doctorId: '', date: '', time: '09:00', title: '', message: '' })
+  const [form, setForm] = useState({ doctorId: '', date: '', time: '09:00', title: 'Appointment Request', message: '' })
   const [saving, setSaving] = useState(false)
+  const [defaultDoctorId, setDefaultDoctorId] = useState<string>('')
 
   useEffect(() => {
     ;(async () => {
@@ -26,6 +27,13 @@ export const PatientAppointments: React.FC = () => {
         setPatientId(pid)
         const doctorsOnly = (usersData || []).filter(u => u.role === 'doctor')
         setDoctors(doctorsOnly)
+        if (profile?.assigned_doctor) {
+          const match = doctorsOnly.find(d => (d.full_name || '').toLowerCase().includes((profile.assigned_doctor || '').toLowerCase()))
+          if (match) {
+            setDefaultDoctorId(match.id)
+            setForm(prev => ({ ...prev, doctorId: prev.doctorId || match.id }))
+          }
+        }
         const { data: allTasks } = await getTasks()
         const mine = (allTasks || []).filter(t => t.patient_id === pid)
         setAppointments(mine)
@@ -102,8 +110,9 @@ export const PatientAppointments: React.FC = () => {
 
   const submitRequest = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!patientId || !user?.id) return
-    if (!form.doctorId || !form.date) return
+    if (!patientId || !user?.id) { alert('Missing patient profile.'); return }
+    if (!form.doctorId) { alert('Please select a doctor'); return }
+    if (!form.date) { alert('Please choose a date'); return }
     setSaving(true)
     try {
       await createTask({
@@ -122,6 +131,7 @@ export const PatientAppointments: React.FC = () => {
         recipient_id: form.doctorId,
         subject: 'Appointment Request',
         content: `Patient requests an appointment on ${form.date}.\n\nMessage: ${form.message || '(no additional message)'}\n`,
+        is_read: false
       } as any)
       setShowRequest(false)
       setForm({ doctorId: '', date: '', time: '09:00', title: '', message: '' })
@@ -146,7 +156,7 @@ export const PatientAppointments: React.FC = () => {
     <div className="max-w-5xl mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><CalendarDays className="w-6 h-6 text-blue-600" /> Appointments</h1>
-        <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2" onClick={() => setShowRequest(true)}>
+        <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2" onClick={() => { setForm(prev => ({ ...prev, doctorId: prev.doctorId || defaultDoctorId || '' })); setShowRequest(true) }}>
           <Plus className="w-4 h-4" /> Request Appointment
         </button>
       </div>

@@ -23,7 +23,7 @@ export const Dashboard: React.FC = () => {
     if (user?.id) {
       try {
         const { data, error } = await getPatientProfileByUserId(user.id)
-        if (error) {
+        if (error && (error as any).code !== 'PGRST116') {
           console.error('Error fetching patient profile:', error)
         } else {
           setPatientProfile(data)
