@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { Heart, UserPlus, LogIn } from 'lucide-react'
 import { PatientAccess } from './PatientAccess'
 import { VolunteerAccess } from './VolunteerAccess'
+import { DoctorAccess } from './DoctorAccess'
 
 export const AuthForm: React.FC = () => {
   const [mode, setMode] = useState<'staff' | 'patient' | 'volunteer'>('patient')
@@ -96,12 +97,15 @@ export const AuthForm: React.FC = () => {
             <img src="/logo.png" alt="Health Bride" className="h-12" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Health Bride Portal</h1>
-          <p className="text-gray-600 mt-2">
-            {isLogin ? 'Sign in to your account' : 'Create your account'}
-          </p>
+          <p className="text-gray-600 mt-2">Sign in to your account</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Doctor portal with Doctor ID/email access */}
+        <div className="mb-6">
+          <DoctorAccess />
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-6 hidden">
           {!isLogin && (
             <>
               <div>
@@ -190,12 +194,6 @@ export const AuthForm: React.FC = () => {
             <span className="text-gray-300">|</span>
             <button onClick={() => setMode('volunteer')} className="text-blue-600 hover:text-blue-800 text-sm font-medium">Volunteer login</button>
           </div>
-          <button
-            onClick={() => setIsLogin(!isLogin)}
-            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-          >
-            {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
-          </button>
         </div>
       </div>
     </div>

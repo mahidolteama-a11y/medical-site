@@ -1,13 +1,13 @@
 import React from 'react'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
-import { getAnnouncements, deleteAnnouncement, getPatientProfiles, getPatientProfileByUserId, sendMessageToDatabase, getUsers } from '../../lib/dummyDatabase'
+import { getAnnouncements, deleteAnnouncement, getPatientProfiles, getPatientProfileByUserId, sendMessageToDatabase, getUsers, getVolunteers } from '../../lib/dummyDatabase'
 import { Announcement, PatientProfile } from '../../types'
 import { Users, MessageSquare, FileText, Heart, CheckSquare, Megaphone, Plus, CreditCard as Edit, Trash2, AlertTriangle, Phone } from 'lucide-react'
 import { MapPin, Activity } from 'lucide-react'
 import { AnnouncementForm } from './AnnouncementForm'
 import PatientStatsChart from './PatientStatsChart'
-import { DataExport } from './DataExport'
+// Removed DataExport and Recent Activity sections per requirements
 
 export const Dashboard: React.FC = () => {
   const { user } = useAuth()
@@ -43,52 +43,32 @@ export const Dashboard: React.FC = () => {
     setEmergencyLoading(true)
     
     try {
-      // Get all users to find doctors and volunteers
-      const { data: users, error: usersError } = await getUsers()
-      if (usersError || !users) {
-        throw new Error('Unable to find healthcare providers')
+      // Collect assigned doctor(s) by name match and volunteers in the same area
+      const [{ data: users }, { data: volunteers }] = await Promise.all([getUsers(), getVolunteers()])
+      const doctors = (users || []).filter(u => u.role === 'doctor')
+      const assignedDoctorName = (patientProfile.assigned_doctor || '').toLowerCase()
+      const assignedDoctors = doctors.filter(d => (d.full_name || '').toLowerCase().includes(assignedDoctorName))
+      const area = (patientProfile.area_name || '').toLowerCase()
+      const sameAreaVols = (volunteers || []).filter((v: any) => (v.area_name || '').toLowerCase() === area)
+
+      if (assignedDoctors.length === 0 && sameAreaVols.length === 0) {
+        throw new Error('No assigned doctor or nearby volunteers found')
       }
 
-      // Filter for doctors and volunteers
-      const healthcareProviders = users.filter(u => u.role === 'doctor' || u.role === 'volunteer')
-      
-      if (healthcareProviders.length === 0) {
-        throw new Error('No healthcare providers available')
-      }
+      const emergencyMessage = `🚨 EMERGENCY - Immediate Assistance Needed\n\nPatient: ${patientProfile.name}\nMRN: ${patientProfile.medical_record_number}\nPhone: ${patientProfile.phone_number || 'N/A'}\nAddress: ${patientProfile.address}\nAssigned Doctor: ${patientProfile.assigned_doctor || 'N/A'}\nAssigned VHV: ${patientProfile.assigned_vhv_name || 'N/A'}\nArea: ${patientProfile.area_name || 'N/A'}\n\nFlags:\n- Critical: ${patientProfile.patient_categories.critical ? 'Yes' : 'No'}\n- Elderly: ${patientProfile.patient_categories.elderly ? 'Yes' : 'No'}\n- Pregnant: ${patientProfile.patient_categories.pregnant ? 'Yes' : 'No'}\n\nCaregiver: ${patientProfile.caregivers_contact || 'N/A'}\n\nThis is an urgent request for immediate medical assistance. Please respond as soon as possible.`
 
-      // Create emergency message content
-      const emergencyMessage = `🚨 EMERGENCY - Immediate Assistance Needed
+      const doctorRecipients = assignedDoctors.map(d => d.id)
+      const volunteerRecipients = sameAreaVols.map((v: any) => v.user_id).filter(Boolean)
+      const recipients = Array.from(new Set([...doctorRecipients, ...volunteerRecipients]))
+      await Promise.all(recipients.map(r => sendMessageToDatabase({
+        sender_id: user!.id,
+        recipient_id: r,
+        content: emergencyMessage,
+        subject: '🚨 EMERGENCY - Immediate Assistance Needed',
+        is_read: false,
+      } as any)))
 
-Patient: ${patientProfile.full_name}
-Medical Record: ${patientProfile.medical_record_number}
-Phone: ${patientProfile.phone_number}
-Address: ${patientProfile.address}
-
-Medical Conditions:
-- Critical: ${patientProfile.patient_categories.critical ? 'Yes' : 'No'}
-- Elderly: ${patientProfile.patient_categories.elderly ? 'Yes' : 'No'}
-- Pregnant: ${patientProfile.patient_categories.pregnant ? 'Yes' : 'No'}
-- Chronic Disease: ${patientProfile.patient_categories.chronic_disease ? 'Yes' : 'No'}
-- Disability: ${patientProfile.patient_categories.disability ? 'Yes' : 'No'}
-
-Emergency Contact: ${patientProfile.emergency_contact_name} - ${patientProfile.emergency_contact_phone}
-
-This is an urgent request for immediate medical assistance. Please respond as soon as possible.`
-
-      // Send message to all healthcare providers
-      const messagePromises = healthcareProviders.map(provider => 
-        sendMessageToDatabase({
-          sender_id: user!.id,
-          recipient_id: provider.id,
-          content: emergencyMessage,
-          subject: '🚨 EMERGENCY - Immediate Assistance Needed',
-          priority: 'urgent'
-        })
-      )
-
-      await Promise.all(messagePromises)
-      
-      alert(`Emergency message sent successfully to ${healthcareProviders.length} healthcare provider(s). They will be notified immediately.`)
+      alert(`Emergency message sent to ${doctorRecipients.length} doctor(s) and ${volunteerRecipients.length} volunteer(s).`)
       
     } catch (error) {
       console.error('Error sending emergency message:', error)
@@ -205,6 +185,7 @@ This is an urgent request for immediate medical assistance. Please respond as so
           { icon: FileText, title: 'My Profile', description: 'View your medical information', action: 'profile' },
           { icon: Activity, title: 'Daily Records', description: 'Track your daily symptoms and vital signs', action: 'records' },
           { icon: MessageSquare, title: 'Messages', description: 'Communicate with your healthcare team', action: 'messages' },
+          { icon: Heart, title: 'Mental Assessment', description: 'Complete your PHQ-9 assessment', action: 'mental' },
           { icon: Heart, title: 'Health Resources', description: 'Access helpful health information', action: 'resources' },
           { icon: MessageSquare, title: 'Appointments', description: 'View and request appointments', action: 'appointments' }
         ]
@@ -406,6 +387,23 @@ This is an urgent request for immediate medical assistance. Please respond as so
           return (
             <div
               key={index}
+              onClick={() => {
+                const mapAction: Record<string,string> = {
+                  'patients': 'patients',
+                  'messages': 'messages',
+                  'create-patient': 'patients',
+                  'tasks': 'tasks',
+                  'records': 'records',
+                  'map': 'map',
+                  'profile': 'profile',
+                  'resources': 'dashboard',
+                  'mental': 'mental',
+                  'appointments': 'appointments',
+                }
+                const target = mapAction[action.action as keyof typeof mapAction] || 'dashboard'
+                try { window.dispatchEvent(new CustomEvent('codex:setView', { detail: target })) } catch {}
+                if ((window as any).setAppView) { (window as any).setAppView(target) }
+              }}
               className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-all cursor-pointer group"
             >
               <div className="flex items-center space-x-4">
@@ -501,17 +499,7 @@ This is an urgent request for immediate medical assistance. Please respond as so
         )}
       </div>
 
-      {/* Data Export Section */}
-      <DataExport />
-
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Recent Activity</h2>
-        <div className="text-center py-8 text-gray-500">
-          <Heart className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-          <p>No recent activity to display.</p>
-          <p className="text-sm mt-1">Start by exploring the available features above.</p>
-        </div>
-      </div>
+      {/* Data Export and Recent Activity removed */}
     </div>
 
     {showForm && (

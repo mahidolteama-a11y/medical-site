@@ -8,6 +8,13 @@ export interface DummyUser {
   role: 'doctor' | 'patient' | 'volunteer';
   created_at: string;
   photo_url?: string;
+  // Optional extra attributes stored on user records
+  phone?: string;
+  gender?: string;
+  dob?: string;
+  address?: string;
+  // For doctors we generate a code for sign-in similar to volunteers
+  doctor_code?: string; // e.g., DR-000123
 }
 
 export interface DummyPatientProfile {
@@ -139,6 +146,65 @@ export interface DummyDailyRecord {
   created_at: string;
   updated_at: string;
 }
+
+export interface DummyMentalAssessment {
+  id: string;
+  patient_id: string;
+  recorded_by: string;
+  date: string;
+  answers: number[];
+  total_score: number;
+  severity: 'minimal' | 'mild' | 'moderate' | 'moderately_severe' | 'severe';
+  notes?: string;
+  created_at: string;
+}
+
+export const dummyMentalAssessments: DummyMentalAssessment[] = []
+
+export interface DummyMedication {
+  id: string;
+  patient_id: string;
+  name: string;
+  dosage?: string;
+  instructions?: string;
+  times: string[]; // HH:MM 24h
+  start_date?: string;
+  end_date?: string;
+  reminders_enabled: boolean;
+  assigned_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DummyMedicationIntake {
+  id: string;
+  medication_id: string;
+  patient_id: string;
+  scheduled_at: string;
+  taken_at?: string;
+  status: 'due' | 'taken' | 'skipped' | 'overdue';
+}
+
+export const dummyMedications: DummyMedication[] = []
+export const dummyMedicationIntakes: DummyMedicationIntake[] = []
+
+export interface DummyMedicationRequest {
+  id: string;
+  patient_id: string;
+  requested_by: string;
+  title?: string;
+  medication?: string;
+  dosage?: string;
+  quantity?: string;
+  notes?: string;
+  status: 'pending' | 'approved' | 'declined' | 'fulfilled';
+  resolved_by?: string;
+  doctor_notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export const dummyMedicationRequests: DummyMedicationRequest[] = []
 
 // Helper for dynamic 'today' date (YYYY-MM-DD)
 const TODAY = new Date().toISOString().slice(0, 10);

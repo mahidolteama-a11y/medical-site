@@ -109,9 +109,17 @@ export const MapPage: React.FC<MapPageProps> = ({ onBack }) => {
   }, [locations, filter, radiusKm, userPos, myProfilePos])
 
   const patientsToShow = useMemo(() => {
-    if (user?.role !== 'volunteer') return [] as any[]
+    // Volunteers: show assigned only when filter = 'patients', else show all in area
+    // Doctors: show all patients
     const origin = userPos || myProfilePos || SALAYA
-    const base = filter === 'patients' ? (assignedPatients || []) : (areaPatients || [])
+    let base: any[] = []
+    if (user?.role === 'volunteer') {
+      base = filter === 'patients' ? (assignedPatients || []) : (areaPatients || [])
+    } else if (user?.role === 'doctor') {
+      base = areaPatients || []
+    } else {
+      return [] as any[]
+    }
     return base
       .filter((p: any) => typeof p.lat === 'number' && typeof p.lng === 'number')
       .filter((p: any) => haversineKm(origin, [p.lat, p.lng]) <= radiusKm)
@@ -201,7 +209,7 @@ export const MapPage: React.FC<MapPageProps> = ({ onBack }) => {
                 <option value="volunteer">Volunteers</option>
                 <option value="center">Centers</option>
                 <option value="hospital">Hospitals</option>
-                {user?.role === 'volunteer' && <option value="patients">My Patients</option>}
+                {(user?.role === 'volunteer' || user?.role === 'doctor') && <option value="patients">{user?.role === 'doctor' ? 'Patients' : 'My Patients'}</option>}
               </select>
               <select value={radiusKm} onChange={(e) => setRadiusKm(parseInt(e.target.value))} className="px-3 py-2 border border-gray-300 rounded-lg text-sm">
                 <option value={5}>5 km</option>
@@ -286,8 +294,8 @@ export const MapPage: React.FC<MapPageProps> = ({ onBack }) => {
                 </CircleMarker>
               ))}
 
-              {/* Patients overlay for volunteers */}
-              {user?.role === 'volunteer' && (filter === 'all' || filter === 'patients') && patientsToShow.map((p: any) => (
+              {/* Patients overlay for volunteers and doctors */}
+              {(user?.role === 'volunteer' || user?.role === 'doctor') && (filter === 'all' || filter === 'patients') && patientsToShow.map((p: any) => (
                 <Marker key={`pat-${p.id}`} position={[p.lat, p.lng]} icon={L.divIcon({
                   className: 'custom-patient-icon',
                   html: `<div style=\"display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:#a21caf;border:2px solid #fff;box-shadow:0 0 0 3px rgba(162,28,175,0.25);color:#fff;font-size:14px;line-height:1\">👤</div>`,

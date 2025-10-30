@@ -10,6 +10,7 @@ import L from 'leaflet'
 import { getAllMapAreas } from '../../lib/mapAreasService'
 import { assignAreaDualMethod, AreaAssignmentResult } from '../../lib/areaAssignment'
 import THAI_PROVINCES from '../../data/thaiProvinces'
+import THAI_ADMIN_MAP from '../../data/thaiAdministrative'
 
 interface PatientFormProps {
   patient?: PatientProfile | null
@@ -306,10 +307,14 @@ export const PatientForm: React.FC<PatientFormProps> = ({ patient, onClose }) =>
         })
       }
     } else {
-      setFormData({
-        ...formData,
-        [name]: value
-      })
+      // Cascading resets for province/district/subdistrict
+      if (name === 'province') {
+        setFormData({ ...formData, province: value, district: '', subdistrict: '' })
+      } else if (name === 'district') {
+        setFormData({ ...formData, district: value, subdistrict: '' })
+      } else {
+        setFormData({ ...formData, [name]: value })
+      }
     }
   }
 
@@ -430,11 +435,21 @@ export const PatientForm: React.FC<PatientFormProps> = ({ patient, onClose }) =>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">District / Amphoe</label>
-                <input name="district" value={formData.district} onChange={handleChange} readOnly={isReadOnly} placeholder="District (Amphoe)" className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50" />
+                <select name="district" value={formData.district} onChange={handleChange} disabled={isReadOnly || !formData.province} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50">
+                  <option value="">Select District</option>
+                  {Object.keys(THAI_ADMIN_MAP[formData.province] || {}).map(d => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Sub-District / Tambon</label>
-                <input name="subdistrict" value={formData.subdistrict} onChange={handleChange} readOnly={isReadOnly} placeholder="Sub-district (Tambon)" className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50" />
+                <select name="subdistrict" value={formData.subdistrict} onChange={handleChange} disabled={isReadOnly || !formData.district} className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50">
+                  <option value="">Select Sub-District</option>
+                  {(THAI_ADMIN_MAP[formData.province]?.[formData.district] || []).map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
               </div>
               <div className="md:col-span-2 lg:col-span-3">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>

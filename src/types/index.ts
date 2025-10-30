@@ -163,6 +163,61 @@ export interface DailyRecord {
   recorded_by_user?: User;
 }
 
+export interface MentalAssessment {
+  id: string;
+  patient_id: string;
+  recorded_by: string;
+  date: string;
+  answers: number[];
+  total_score: number;
+  severity: 'minimal' | 'mild' | 'moderate' | 'moderately_severe' | 'severe';
+  notes?: string;
+  created_at: string;
+  patient?: PatientProfile;
+  recorded_by_user?: User;
+}
+
+export interface Medication {
+  id: string;
+  patient_id: string;
+  name: string;
+  dosage?: string;
+  instructions?: string;
+  times: string[]; // array of HH:MM (24h)
+  start_date?: string; // YYYY-MM-DD
+  end_date?: string;   // YYYY-MM-DD
+  reminders_enabled: boolean;
+  assigned_by?: string; // doctor id
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MedicationIntakeLog {
+  id: string;
+  medication_id: string;
+  patient_id: string;
+  scheduled_at: string; // ISO timestamp of the scheduled dose
+  taken_at?: string;    // ISO timestamp when patient marked taken
+  status: 'due' | 'taken' | 'skipped' | 'overdue';
+}
+
+export interface MedicationRequest {
+  id: string;
+  patient_id: string;
+  requested_by: string; // user id (patient or caregiver)
+  title?: string;
+  medication?: string; // requested medication name
+  dosage?: string;
+  quantity?: string;
+  notes?: string;
+  status: 'pending' | 'approved' | 'declined' | 'fulfilled';
+  resolved_by?: string; // doctor id
+  doctor_notes?: string;
+  created_at: string;
+  updated_at: string;
+  patient?: PatientProfile;
+}
+
 export interface VolunteerProfile {
   id: string;
   user_id: string;

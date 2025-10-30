@@ -23,6 +23,21 @@ export const MessageCenter: React.FC = () => {
     fetchUsers()
   }, [user])
 
+  // Prefill recipient when navigated from directories (e.g., Doctors list)
+  useEffect(() => {
+    try {
+      const prefill = localStorage.getItem('message:recipient')
+      if (prefill) {
+        setShowNewMessage(true)
+        setSelectedRecipient(prefill)
+        // try to resolve display name
+        const who = users.find(u => u.id === prefill)
+        if (who) setSearchTerm(who.full_name)
+        localStorage.removeItem('message:recipient')
+      }
+    } catch {}
+  }, [users])
+
   const fetchMessages = async () => {
     if (!user) return
 
@@ -48,7 +63,10 @@ export const MessageCenter: React.FC = () => {
       if (error) {
         console.error('Error fetching users:', error)
       } else {
-        setUsers(data || [])
+        // Restrict recipients for patients: cannot message other patients
+        const all = data || []
+        const allowed = (user?.role === 'patient') ? all.filter(u => u.role !== 'patient') : all
+        setUsers(allowed)
       }
     } catch (error) {
       console.error('Error fetching users:', error)

@@ -9,6 +9,7 @@ import { getAllMapAreas } from '../../lib/mapAreasService';
 import { assignAreaDualMethod, AreaAssignmentResult } from '../../lib/areaAssignment';
 import { createVolunteerUser, getPatientProfiles, updatePatientProfile } from '../../lib/dummyDatabase';
 import THAI_PROVINCES from '../../data/thaiProvinces';
+import THAI_ADMIN_MAP from '../../data/thaiAdministrative';
 
 interface VolunteerFormProps {
   record: VolunteerProfile | null;
@@ -213,7 +214,18 @@ export const VolunteerForm: React.FC<VolunteerFormProps> = ({ record, onClose })
 
   return (
     <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-      <h2 className="text-xl font-semibold mb-4">{editing ? 'Edit Volunteer' : 'Create Volunteer'}</h2>
+      <div className="mb-4">
+        <h2 className="text-xl font-semibold">{editing ? 'Edit Volunteer' : 'Create Volunteer'}</h2>
+        {editing && record && (
+          <div className="mt-1 text-xs text-gray-600 flex flex-wrap gap-2">
+            <span className="px-2 py-1 bg-gray-100 border border-gray-200 rounded">Record ID: <span className="font-mono">{record.id}</span></span>
+            <span className="px-2 py-1 bg-gray-100 border border-gray-200 rounded">User ID: <span className="font-mono">{record.user_id}</span></span>
+            {record.volunteer_code && (
+              <span className="px-2 py-1 bg-gray-100 border border-gray-200 rounded">Volunteer ID: <span className="font-mono">{record.volunteer_code}</span></span>
+            )}
+          </div>
+        )}
+      </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -288,7 +300,7 @@ export const VolunteerForm: React.FC<VolunteerFormProps> = ({ record, onClose })
               <select
                 className="w-full px-4 py-3 border rounded-lg"
                 value={formData.province}
-                onChange={e => setFormData(prev => ({ ...prev, province: e.target.value }))}
+                onChange={e => setFormData(prev => ({ ...prev, province: e.target.value, district: '', subdistrict: '' }))}
               >
                 <option value="">Select Province</option>
                 {THAI_PROVINCES.map(p => (
@@ -299,22 +311,32 @@ export const VolunteerForm: React.FC<VolunteerFormProps> = ({ record, onClose })
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">District</label>
-              <input
+              <select
                 className="w-full px-4 py-3 border rounded-lg"
-                placeholder="District (Amphoe)"
                 value={formData.district}
-                onChange={e => setFormData(prev => ({ ...prev, district: e.target.value }))}
-              />
+                onChange={e => setFormData(prev => ({ ...prev, district: e.target.value, subdistrict: '' }))}
+                disabled={!formData.province}
+              >
+                <option value="">Select District</option>
+                {Object.keys(THAI_ADMIN_MAP[formData.province] || {}).map(d => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Sub-District</label>
-              <input
+              <select
                 className="w-full px-4 py-3 border rounded-lg"
-                placeholder="Sub-district (Tambon)"
                 value={formData.subdistrict}
                 onChange={e => setFormData(prev => ({ ...prev, subdistrict: e.target.value }))}
-              />
+                disabled={!formData.district}
+              >
+                <option value="">Select Sub-District</option>
+                {(THAI_ADMIN_MAP[formData.province]?.[formData.district] || []).map(s => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
             </div>
 
             <div>

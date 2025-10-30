@@ -48,6 +48,7 @@ export const UserProfile: React.FC = () => {
           <div>
             <div className="text-sm text-gray-500">Role</div>
             <div className="font-medium text-gray-900 capitalize">{user?.role}</div>
+            <div className="text-xs text-gray-500 mt-1">User ID: <span className="font-mono">{user?.id}</span></div>
           </div>
         </div>
 

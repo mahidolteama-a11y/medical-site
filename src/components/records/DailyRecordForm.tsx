@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
-import { createDailyRecord, updateDailyRecord, getPatientProfileByUserId, getPatientProfiles } from '../../lib/dummyDatabase'
+import { createDailyRecord, updateDailyRecord, getPatientProfileByUserId, getPatientProfiles, getVolunteers, getUsers, sendMessageToDatabase, createTask } from '../../lib/dummyDatabase'
 import { DailyRecord, PatientProfile } from '../../types'
 import { ArrowLeft, Save, Activity } from 'lucide-react'
 
@@ -138,6 +138,81 @@ export const DailyRecordForm: React.FC<DailyRecordFormProps> = ({ record, patien
         if (error) {
           console.error('Error creating daily record:', error)
           return
+        }
+
+        // After patient's submission, evaluate thresholds and alert assigned VHV if abnormal
+        if (user?.role === 'patient') {
+          try {
+            const flags: string[] = []
+            const num = (s?: string) => {
+              const m = (s || '').match(/-?\d+\.?\d*/)
+              return m ? parseFloat(m[0]) : NaN
+            }
+            // Temperature
+            const t = num(formData.temperature)
+            if (!Number.isNaN(t)) {
+              const isC = /c/i.test(formData.temperature)
+              const f = isC ? (t * 9/5 + 32) : t
+              if (f >= 100.4) flags.push(`High temperature: ${formData.temperature}`)
+            }
+            // Pulse
+            const p = num(formData.pulse)
+            if (!Number.isNaN(p) && (p >= 110 || p <= 50)) flags.push(`Abnormal pulse: ${formData.pulse}`)
+            // Blood pressure
+            const bp = (formData.blood_pressure || '').match(/(\d+)\D+(\d+)/)
+            if (bp) {
+              const sys = parseInt(bp[1], 10); const dia = parseInt(bp[2], 10)
+              if (sys >= 140 || dia >= 90) flags.push(`High blood pressure: ${formData.blood_pressure}`)
+              if (sys <= 90 || dia <= 60) flags.push(`Low blood pressure: ${formData.blood_pressure}`)
+            }
+            // Blood sugar
+            const bs = num(formData.blood_sugar)
+            if (!Number.isNaN(bs) && bs >= 200) flags.push(`High blood sugar: ${formData.blood_sugar}`)
+            // Oxygen saturation (low)
+            const ox = num(formData.oxygen_saturation)
+            if (!Number.isNaN(ox) && ox > 0 && ox < 92) flags.push(`Low SpO₂: ${formData.oxygen_saturation}`)
+            // Severe pain or fatigue
+            if (formData.pain_level >= 8) flags.push(`Severe pain level: ${formData.pain_level}/10`)
+            if (formData.fatigue_level >= 8) flags.push(`Severe fatigue: ${formData.fatigue_level}/10`)
+
+            if (flags.length > 0) {
+              const { data: users } = await getUsers()
+              const { data: volunteers } = await getVolunteers()
+              const me = patientProfile
+              const vhvName = (me?.assigned_vhv_name || '').toLowerCase()
+              const assignedVhv = (volunteers || []).find((v:any)=> (v.name || '').toLowerCase().includes(vhvName))
+              const doctorName = (me?.assigned_doctor || '').toLowerCase()
+              const doctors = (users || []).filter((u:any)=> u.role==='doctor' && (u.full_name || '').toLowerCase().includes(doctorName))
+
+              // Notify VHV via message
+              if (assignedVhv?.user_id) {
+                const subject = 'Alert: Abnormal Daily Health Measurement'
+                const content = `Patient: ${me?.name}\nMRN: ${me?.medical_record_number}\nDate: ${formData.record_date}\n\nIssues:\n- ${flags.join('\n- ')}\n\nAction: Please review and schedule an appointment with ${me?.assigned_doctor || 'doctor'} as needed.`
+                await sendMessageToDatabase({ sender_id: user.id, recipient_id: assignedVhv.user_id, subject, content } as any)
+
+                // Create a task for the VHV to make appointment
+                const priority = (ox && ox < 90) || (t && !Number.isNaN(t) && (/c/i.test(formData.temperature) ? t >= 40 : t >= 104)) ? 'urgent' : 'high'
+                await createTask({
+                  title: 'Schedule appointment for patient',
+                  description: `Auto-generated from daily record.\n\n${flags.join('\n')}`,
+                  priority,
+                  status: 'pending',
+                  assigned_to: assignedVhv.user_id,
+                  assigned_by: user.id,
+                  patient_id: recordPatientId,
+                  due_date: new Date().toISOString().slice(0,10),
+                } as any)
+
+                // Optional: FYI message to assigned doctor
+                if (doctors.length > 0) {
+                  const d = doctors[0]
+                  await sendMessageToDatabase({ sender_id: user.id, recipient_id: d.id, subject: 'FYI: Abnormal Daily Record', content: `Patient ${me?.name} submitted daily record with issues:\n- ${flags.join('\n- ')}\nVHV has been asked to schedule an appointment.` } as any)
+                }
+              }
+            }
+          } catch (err) {
+            console.warn('Alerting VHV failed:', err)
+          }
         }
       }
 

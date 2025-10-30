@@ -16,8 +16,16 @@ import { DailyRecordList } from './components/records/DailyRecordList'
 import PatientAppointments from './components/appointments/PatientAppointments'
 import VolunteerAppointments from './components/appointments/VolunteerAppointments'
 import { VolunteerListPage } from './components/volunteers/VolunteerList'
+import DoctorsList from './components/doctors/DoctorsList'
 import { UserProfile } from './components/profile/UserProfile'
+import MedicationRequest from './components/patients/MedicationRequest'
 import { clearInvalidSession } from './lib/sessionValidator'
+import MentalHealthAssessment from './components/assessments/MentalHealthAssessment'
+import MentalAssessmentsList from './components/assessments/MentalAssessmentsList'
+import { initMedicationReminders, stopMedicationReminders } from './lib/reminderService'
+import PatientMedications from './components/medications/PatientMedications'
+import DoctorMedicationRequests from './components/medications/DoctorMedicationRequests'
+import VolunteerMedicationRequests from './components/medications/VolunteerMedicationRequests'
 
 function AppContent() {
   const { user, loading } = useAuth()
@@ -36,6 +44,13 @@ function AppContent() {
     window.addEventListener('codex:setView', onSetView)
     return () => window.removeEventListener('codex:setView', onSetView)
   }, []);
+
+  // Initialize medication reminders for patients only
+  useEffect(() => {
+    if (user?.role === 'patient') initMedicationReminders(user.id)
+    else stopMedicationReminders()
+    return () => stopMedicationReminders()
+  }, [user?.id, user?.role])
 
   if (loading) {
     return (
@@ -65,12 +80,24 @@ function AppContent() {
         return user.role === 'doctor' ? <VolunteerTaskManager /> : <TaskList />
       case 'volunteers':
         return user.role === 'doctor' ? <VolunteerListPage /> : <Dashboard />
+      case 'doctors':
+        return user.role === 'volunteer' || user.role === 'patient' || user.role === 'doctor' ? <DoctorsList /> : <Dashboard />
       case 'map':
         return <MapPage onBack={() => setCurrentView('dashboard')} />
       case 'records':
         return <DailyRecordList />
       case 'appointments':
         return user.role === 'patient' ? <PatientAppointments /> : user.role === 'volunteer' ? <VolunteerAppointments /> : <Dashboard />
+      case 'medication':
+        return user.role === 'patient' ? <MedicationRequest /> : <Dashboard />
+      case 'mental':
+        return user.role === 'patient' ? <MentalHealthAssessment /> : <Dashboard />
+      case 'mental-assessments':
+        return user.role === 'doctor' ? <MentalAssessmentsList /> : <Dashboard />
+      case 'medications':
+        return user.role === 'patient' ? <PatientMedications /> : <Dashboard />
+      case 'med-requests':
+        return user.role === 'doctor' ? <DoctorMedicationRequests /> : user.role === 'volunteer' ? <VolunteerMedicationRequests /> : <Dashboard />
       case 'user-profile':
         return <UserProfile />
       default:

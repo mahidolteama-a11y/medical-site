@@ -11,7 +11,8 @@ import {
   CalendarDays,
   Menu,
   ChevronLeft,
-  X
+  X,
+  Pill
 } from 'lucide-react'
 
 interface SidebarProps {
@@ -45,23 +46,33 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, mob
       { key: 'map', label: 'Map', icon: MapPin }
     ]
 
-    if (user?.role === 'doctor' || user?.role === 'volunteer') {
+  if (user?.role === 'doctor' || user?.role === 'volunteer') {
       baseItems.splice(1, 0, { key: 'patients', label: 'Patients', icon: FileText })
       if (user?.role === 'doctor') {
         baseItems.splice(2, 0, { key: 'volunteers', label: 'Volunteers', icon: CheckSquare })
+        baseItems.splice(3, 0, { key: 'doctors', label: 'Doctors', icon: Heart })
+        baseItems.splice(5, 0, { key: 'med-requests', label: 'Medication Requests', icon: Heart })
       }
       if (user?.role === 'volunteer') {
         const idx = baseItems.findIndex(i => i.key === 'tasks')
         baseItems.splice(idx+1, 0, { key: 'appointments', label: 'Appointments', icon: CalendarDays })
+        // Doctors directory for volunteers
+        baseItems.splice(2, 0, { key: 'doctors', label: 'Doctors', icon: Heart })
+        baseItems.splice(6, 0, { key: 'med-requests', label: 'Medication Requests', icon: Heart })
       }
     } else if (user?.role === 'patient') {
       baseItems.splice(1, 0, { key: 'profile', label: 'My Profile', icon: FileText })
+      baseItems.splice(2, 0, { key: 'doctors', label: 'Doctors', icon: Heart })
+      baseItems.splice(3, 0, { key: 'medication', label: 'Medication Request', icon: Pill })
+      baseItems.splice(4, 0, { key: 'medications', label: 'My Medications', icon: Heart })
+      baseItems.splice(4, 0, { key: 'mental', label: 'Mental Assessment', icon: Activity })
       const idx = baseItems.findIndex(i => i.key === 'tasks')
       if (idx !== -1) baseItems[idx] = { key: 'appointments', label: 'Appointments', icon: CalendarDays }
     }
 
     if (user?.role === 'doctor') {
       baseItems.splice(3, 0, { key: 'volunteer-tasks', label: 'Volunteer Tasks', icon: CheckSquare })
+      baseItems.splice(4, 0, { key: 'mental-assessments', label: 'Mental Assessments', icon: Activity })
     }
 
     return baseItems

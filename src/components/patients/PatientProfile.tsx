@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
-import { getPatientProfileByUserId } from '../../lib/dummyDatabase'
+import { getPatientProfileByUserId, getVolunteers } from '../../lib/dummyDatabase'
 import { PatientProfile as PatientProfileType } from '../../types'
-import { User, Calendar, Phone, AlertTriangle, Pill, FileText, Heart } from 'lucide-react'
+import { User, Calendar, Phone, AlertTriangle, Pill, FileText, Heart, MapPin, MessageSquare } from 'lucide-react'
 
 export const PatientProfile: React.FC = () => {
   const { user } = useAuth()
   const [profile, setProfile] = useState<PatientProfileType | null>(null)
   const [loading, setLoading] = useState(true)
+  const [assignedVhv, setAssignedVhv] = useState<any | null>(null)
 
   useEffect(() => {
     fetchPatientProfile()
@@ -23,6 +24,17 @@ export const PatientProfile: React.FC = () => {
         console.error('Error fetching patient profile:', error)
       } else {
         setProfile(data)
+        // Resolve assigned VHV details by name match
+        if (data?.assigned_vhv_name) {
+          try {
+            const { data: volunteers } = await getVolunteers()
+            const match = (volunteers || []).find((v: any) =>
+              typeof data.assigned_vhv_name === 'string' &&
+              (v.name || '').toLowerCase().includes((data.assigned_vhv_name || '').toLowerCase())
+            )
+            if (match) setAssignedVhv(match)
+          } catch {}
+        }
       }
     } catch (error) {
       console.error('Error fetching patient profile:', error)
@@ -72,6 +84,12 @@ export const PatientProfile: React.FC = () => {
         </div>
 
         <div className="p-6">
+          {/* IDs */}
+          <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+            <div className="p-3 bg-gray-50 border border-gray-200 rounded"><span className="text-gray-600">Patient ID:</span> <span className="font-mono text-gray-900">{profile.id}</span></div>
+            <div className="p-3 bg-gray-50 border border-gray-200 rounded"><span className="text-gray-600">User ID:</span> <span className="font-mono text-gray-900">{profile.user_id}</span></div>
+            <div className="p-3 bg-gray-50 border border-gray-200 rounded"><span className="text-gray-600">MRN:</span> <span className="font-mono text-gray-900">{profile.medical_record_number}</span></div>
+          </div>
           {/* Patient Categories */}
           {(profile.patient_categories.critical || profile.patient_categories.elderly || profile.patient_categories.pregnant) && (
             <div className="mb-6 p-4 bg-gray-50 rounded-lg">
@@ -91,6 +109,43 @@ export const PatientProfile: React.FC = () => {
           )}
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Assigned VHV Details */}
+            {assignedVhv && (
+              <div className="lg:col-span-2 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-blue-100 p-2 rounded-lg"><User className="w-5 h-5 text-blue-600"/></div>
+                    <div>
+                      <div className="text-sm text-blue-800">Assigned VHV</div>
+                      <div className="font-semibold text-blue-900">{assignedVhv.name} {assignedVhv.volunteer_code ? `(${assignedVhv.volunteer_code})` : ''}</div>
+                      <div className="text-sm text-blue-800">{assignedVhv.email || ''} {assignedVhv.phone ? ` • ${assignedVhv.phone}` : ''}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        try { localStorage.setItem('message:recipient', assignedVhv.user_id) } catch {}
+                        try { window.dispatchEvent(new CustomEvent('codex:setView', { detail: 'messages' })) } catch {}
+                        if ((window as any).setAppView) { (window as any).setAppView('messages') }
+                      }}
+                      className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 inline-flex items-center gap-2 text-sm"
+                    >
+                      <MessageSquare className="w-4 h-4" /> Message
+                    </button>
+                    <button
+                      onClick={() => {
+                        try { window.dispatchEvent(new CustomEvent('codex:setView', { detail: 'map' })) } catch {}
+                        if ((window as any).setAppView) { (window as any).setAppView('map') }
+                      }}
+                      className="px-3 py-2 border border-blue-300 text-blue-700 rounded-lg hover:bg-blue-50 inline-flex items-center gap-2 text-sm"
+                    >
+                      <MapPin className="w-4 h-4" /> Open Map
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Basic Information */}
             <div className="space-y-6">
               <h3 className="text-lg font-semibold text-gray-900 flex items-center space-x-2">
@@ -127,7 +182,20 @@ export const PatientProfile: React.FC = () => {
                   <User className="w-5 h-5 text-gray-400" />
                   <div>
                     <p className="text-sm font-medium text-gray-700">Assigned Doctor</p>
-                    <p className="text-gray-900">{profile.assigned_doctor}</p>
+                    {profile.assigned_doctor ? (
+                      <button
+                        onClick={() => {
+                          try { localStorage.setItem('doctor:search', profile.assigned_doctor) } catch {}
+                          try { window.dispatchEvent(new CustomEvent('codex:setView', { detail: 'doctors' })) } catch {}
+                          if ((window as any).setAppView) { (window as any).setAppView('doctors') }
+                        }}
+                        className="text-blue-700 hover:underline"
+                      >
+                        {profile.assigned_doctor}
+                      </button>
+                    ) : (
+                      <p className="text-gray-900">Not assigned</p>
+                    )}
                   </div>
                 </div>
                 
