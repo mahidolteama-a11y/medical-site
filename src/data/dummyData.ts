@@ -147,6 +147,20 @@ export interface DummyDailyRecord {
   updated_at: string;
 }
 
+export interface DummyDoctorRecord {
+  id: string;
+  patient_id: string;
+  recorded_by: string; // doctor id
+  visit_date: string; // YYYY-MM-DD
+  title?: string;
+  summary?: string;
+  diagnosis?: string;
+  prescriptions?: string;
+  instructions?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface DummyMentalAssessment {
   id: string;
   patient_id: string;
@@ -187,6 +201,8 @@ export interface DummyMedicationIntake {
 
 export const dummyMedications: DummyMedication[] = []
 export const dummyMedicationIntakes: DummyMedicationIntake[] = []
+
+export const dummyDoctorRecords: DummyDoctorRecord[] = []
 
 export interface DummyMedicationRequest {
   id: string;

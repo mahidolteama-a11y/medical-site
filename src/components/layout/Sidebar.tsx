@@ -42,7 +42,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, mob
       { key: 'dashboard', label: 'Dashboard', icon: User },
       { key: 'messages', label: 'Messages', icon: MessageSquare },
       { key: 'tasks', label: 'My Tasks', icon: CheckSquare },
-      { key: 'records', label: 'Daily Records', icon: Activity },
+      { key: 'records', label: 'Medical Records', icon: Activity },
       { key: 'map', label: 'Map', icon: MapPin }
     ]
 

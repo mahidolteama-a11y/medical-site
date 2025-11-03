@@ -5,6 +5,8 @@ import {
   dummyTasks,
   dummyAnnouncements,
   dummyDailyRecords,
+  DummyDoctorRecord,
+  dummyDoctorRecords,
   DummyPatientProfile, 
   DummyMessage, 
   DummyUser,
@@ -60,6 +62,7 @@ let persistentUsers = loadFromStorage('dummyUsers', [...dummyUsers]);
 let persistentTasks = loadFromStorage('dummyTasks', [...dummyTasks]);
 let persistentAnnouncements = loadFromStorage('dummyAnnouncements', [...dummyAnnouncements]);
 let persistentDailyRecords = loadFromStorage('dummyDailyRecords', [...dummyDailyRecords]);
+let persistentDoctorRecords: DummyDoctorRecord[] = loadFromStorage('dummyDoctorRecords', [...dummyDoctorRecords]);
 let persistentLocations = loadFromStorage('dummyLocations', [...dummyLocations]);
 let persistentVolunteers: VolunteerProfile[] = loadFromStorage('dummyVolunteers', []);
 let persistentMentalAssessments: DummyMentalAssessment[] = loadFromStorage('dummyMentalAssessments', [...dummyMentalAssessments]);
@@ -187,6 +190,11 @@ try {
   const beforeRec = (persistentDailyRecords || []).length
   persistentDailyRecords = (persistentDailyRecords || []).filter(r => patientIds.has(r.patient_id) && userById.has(r.recorded_by))
   if (persistentDailyRecords.length !== beforeRec) saveToStorage('dummyDailyRecords', persistentDailyRecords)
+
+  // Clean doctor records with missing refs
+  const beforeDocRec = (persistentDoctorRecords || []).length
+  persistentDoctorRecords = (persistentDoctorRecords || []).filter(r => patientIds.has(r.patient_id) && userById.has(r.recorded_by))
+  if (persistentDoctorRecords.length !== beforeDocRec) saveToStorage('dummyDoctorRecords', persistentDoctorRecords)
 
   // Clean locations with missing users
   const beforeLoc = (persistentLocations || []).length
@@ -767,6 +775,48 @@ export const deleteDailyRecord = async (id: string) => {
   
   return { data: null, error: null };
 };
+
+// Doctor Records Operations
+export const getDoctorRecords = async (patientId?: string, userId?: string) => {
+  await new Promise(resolve => setTimeout(resolve, 300));
+  let records = (persistentDoctorRecords || []).map(r => ({
+    ...r,
+    patient: persistentPatientProfiles.find(p => p.id === r.patient_id),
+    recorded_by_user: persistentUsers.find(u => u.id === r.recorded_by)
+  }))
+  if (patientId) records = records.filter(r => r.patient_id === patientId)
+  if (userId) {
+    const p = persistentPatientProfiles.find(pp => pp.user_id === userId)
+    if (p) records = records.filter(r => r.patient_id === p.id)
+  }
+  return { data: records.sort((a,b)=> new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime()), error: null }
+}
+
+export const createDoctorRecord = async (rec: Omit<DummyDoctorRecord, 'id' | 'created_at' | 'updated_at'>) => {
+  await new Promise(resolve => setTimeout(resolve, 250));
+  const row: DummyDoctorRecord = { ...rec, id: generateId(), created_at: getCurrentTimestamp(), updated_at: getCurrentTimestamp() }
+  persistentDoctorRecords.push(row)
+  saveToStorage('dummyDoctorRecords', persistentDoctorRecords)
+  return { data: row, error: null }
+}
+
+export const updateDoctorRecord = async (id: string, updates: Partial<DummyDoctorRecord>) => {
+  await new Promise(resolve => setTimeout(resolve, 250));
+  const idx = persistentDoctorRecords.findIndex(r => r.id === id)
+  if (idx === -1) return { data: null, error: { message: 'Record not found' } }
+  persistentDoctorRecords[idx] = { ...persistentDoctorRecords[idx], ...updates, updated_at: getCurrentTimestamp() }
+  saveToStorage('dummyDoctorRecords', persistentDoctorRecords)
+  return { data: persistentDoctorRecords[idx], error: null }
+}
+
+export const deleteDoctorRecord = async (id: string) => {
+  await new Promise(resolve => setTimeout(resolve, 200));
+  const idx = persistentDoctorRecords.findIndex(r => r.id === id)
+  if (idx === -1) return { data: null, error: { message: 'Record not found' } }
+  persistentDoctorRecords.splice(idx, 1)
+  saveToStorage('dummyDoctorRecords', persistentDoctorRecords)
+  return { data: null, error: null }
+}
 
 // Mental Health Assessments Operations
 export const getMentalAssessments = async (patientId?: string, userId?: string) => {

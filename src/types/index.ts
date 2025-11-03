@@ -163,6 +163,23 @@ export interface DailyRecord {
   recorded_by_user?: User;
 }
 
+// Doctor-created medical record captured after a clinical visit
+export interface DoctorRecord {
+  id: string;
+  patient_id: string;
+  recorded_by: string; // doctor user id
+  visit_date: string; // YYYY-MM-DD
+  title?: string; // optional visit title
+  summary?: string; // brief summary of the visit
+  diagnosis?: string;
+  prescriptions?: string; // free text summary
+  instructions?: string; // advice for patient
+  created_at: string;
+  updated_at: string;
+  patient?: PatientProfile;
+  recorded_by_user?: User;
+}
+
 export interface MentalAssessment {
   id: string;
   patient_id: string;

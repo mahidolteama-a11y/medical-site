@@ -1,8 +1,8 @@
 import React from 'react'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
-import { getAnnouncements, deleteAnnouncement, getPatientProfiles, getPatientProfileByUserId, sendMessageToDatabase, getUsers, getVolunteers } from '../../lib/dummyDatabase'
-import { Announcement, PatientProfile } from '../../types'
+import { getAnnouncements, deleteAnnouncement, getPatientProfiles, getPatientProfileByUserId, sendMessageToDatabase, getUsers, getVolunteers, getTasks } from '../../lib/dummyDatabase'
+import { Announcement, PatientProfile, Task } from '../../types'
 import { Users, MessageSquare, FileText, Heart, CheckSquare, Megaphone, Plus, CreditCard as Edit, Trash2, AlertTriangle, Phone } from 'lucide-react'
 import { MapPin, Activity } from 'lucide-react'
 import { AnnouncementForm } from './AnnouncementForm'
@@ -18,6 +18,7 @@ export const Dashboard: React.FC = () => {
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null)
   const [patientProfile, setPatientProfile] = useState<PatientProfile | null>(null)
   const [emergencyLoading, setEmergencyLoading] = useState(false)
+  const [patientAppointments, setPatientAppointments] = useState<Task[]>([])
 
   const fetchPatientProfile = async () => {
     if (user?.id) {
@@ -27,6 +28,14 @@ export const Dashboard: React.FC = () => {
           console.error('Error fetching patient profile:', error)
         } else {
           setPatientProfile(data)
+          // Load appointments for this patient (today + upcoming)
+          try {
+            const { data: allTasks } = await getTasks()
+            const mine = (allTasks || []).filter(t => t.patient_id === data?.id)
+            setPatientAppointments(mine)
+          } catch (e) {
+            console.warn('Unable to load patient appointments', e)
+          }
         }
       } catch (error) {
         console.error('Error fetching patient profile:', error)
@@ -196,6 +205,19 @@ export const Dashboard: React.FC = () => {
 
   // Hide quick action cards for all user types per request
   const quickActions: any[] = []
+  
+  // Patient appointment summaries (today + upcoming)
+  const todayYMD = (() => {
+    const d = new Date();
+    return d.toISOString().slice(0,10)
+  })()
+  const activeStatuses = new Set(['pending','in_progress'])
+  const patientTodayAppointments = patientAppointments
+    .filter(t => t.due_date === todayYMD && activeStatuses.has(t.status))
+    .sort((a,b)=> (a.due_time||'').localeCompare(b.due_time||''))
+  const patientUpcomingAppointments = patientAppointments
+    .filter(t => (t.due_date || '') > todayYMD && activeStatuses.has(t.status))
+    .sort((a,b)=> (a.due_date||'').localeCompare(b.due_date||'') || (a.due_time||'').localeCompare(b.due_time||''))
   const patientStats = getPatientStatistics()
 
   const getPriorityColor = (priority: string) => {
@@ -381,6 +403,59 @@ export const Dashboard: React.FC = () => {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Patient: Today & Upcoming Appointments */}
+        {user?.role === 'patient' && (
+          <>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-gray-900">Today’s Appointments</h3>
+                <button
+                  onClick={() => { try { window.dispatchEvent(new CustomEvent('codex:setView', { detail: 'appointments' })) } catch {}; if ((window as any).setAppView) (window as any).setAppView('appointments') }}
+                  className="text-sm text-blue-600 hover:text-blue-800"
+                >
+                  View all
+                </button>
+              </div>
+              {patientTodayAppointments.length === 0 ? (
+                <p className="text-sm text-gray-600">No appointments today.</p>
+              ) : (
+                <ul className="space-y-3">
+                  {patientTodayAppointments.slice(0,5).map((a)=> (
+                    <li key={a.id} className="flex items-center justify-between">
+                      <div className="text-sm text-gray-900 font-medium">{a.title || 'Appointment'}</div>
+                      <div className="text-sm text-gray-600">{a.due_time || ''}</div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-gray-900">Upcoming Appointments</h3>
+                <button
+                  onClick={() => { try { window.dispatchEvent(new CustomEvent('codex:setView', { detail: 'appointments' })) } catch {}; if ((window as any).setAppView) (window as any).setAppView('appointments') }}
+                  className="text-sm text-blue-600 hover:text-blue-800"
+                >
+                  View all
+                </button>
+              </div>
+              {patientUpcomingAppointments.length === 0 ? (
+                <p className="text-sm text-gray-600">No upcoming appointments.</p>
+              ) : (
+                <ul className="space-y-3">
+                  {patientUpcomingAppointments.slice(0,5).map((a)=> (
+                    <li key={a.id} className="flex items-center justify-between">
+                      <div className="text-sm text-gray-900 font-medium">{a.title || 'Appointment'}</div>
+                      <div className="text-sm text-gray-600">{a.due_date}{a.due_time ? ` ${a.due_time}` : ''}</div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </>
         )}
 
         {quickActions.map((action, index) => {
