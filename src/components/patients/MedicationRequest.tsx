@@ -11,6 +11,7 @@ export const MedicationRequest: React.FC = () => {
   const [quantity, setQuantity] = useState('')
   const [notes, setNotes] = useState('')
   const [history, setHistory] = useState<any[]>([])
+  const [patientId, setPatientId] = useState<string | null>(null)
 
   const [doctorId, setDoctorId] = useState<string | null>(null)
   const [vhvUserId, setVhvUserId] = useState<string | null>(null)
@@ -27,6 +28,7 @@ export const MedicationRequest: React.FC = () => {
           if (doc) { setDoctorId(doc.id); setDoctorName(doc.full_name) }
           const vhv = (volunteers || []).find((v: any) => (v.name || '').toLowerCase().includes((profile.assigned_vhv_name || '').toLowerCase()))
           if (vhv) { setVhvUserId(vhv.user_id); setVhvName(vhv.name) }
+          setPatientId(profile.id)
         }
         if (profile) {
           const { data: reqs } = await getMedicationRequests(profile.id)
@@ -40,17 +42,18 @@ export const MedicationRequest: React.FC = () => {
 
   const submit = async () => {
     if (!canSubmit) return
+    if (!patientId) { alert('Cannot find your patient profile.'); return }
     setSubmitting(true)
     try {
       const subject = 'Medication Request'
       const body = `Patient requests medication refill/order.\n\nMedication: ${medication}\nQuantity: ${quantity || 'N/A'}\nNotes: ${notes || 'N/A'}`
       const recipients = [doctorId, vhvUserId].filter(Boolean) as string[]
       // Persist request
-      await createMedicationRequest({ patient_id: (profile as any).id, requested_by: user!.id, title: subject, medication, dosage: '', quantity, notes, status: 'pending' } as any)
+      await createMedicationRequest({ patient_id: patientId, requested_by: user!.id, title: subject, medication, dosage: '', quantity, notes, status: 'pending' } as any)
       await Promise.all(recipients.map(r => sendMessageToDatabase({ sender_id: user!.id, recipient_id: r, subject, content: body, is_read: false } as any)))
       setMedication(''); setQuantity(''); setNotes('')
       alert('Request sent to your care team.')
-      const { data: reqs } = await getMedicationRequests((profile as any).id)
+      const { data: reqs } = await getMedicationRequests(patientId)
       setHistory(reqs || [])
     } catch (e) {
       alert('Failed to send request')
