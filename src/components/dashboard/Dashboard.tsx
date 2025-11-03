@@ -194,7 +194,8 @@ export const Dashboard: React.FC = () => {
     }
   }
 
-  const quickActions = getQuickActions()
+  // Hide quick action cards for all user types per request
+  const quickActions: any[] = []
   const patientStats = getPatientStatistics()
 
   const getPriorityColor = (priority: string) => {
