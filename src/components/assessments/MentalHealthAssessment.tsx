@@ -142,7 +142,7 @@ export const MentalHealthAssessment: React.FC = () => {
           </div>
 
           <div className="flex justify-end">
-            <button disabled={submitting} onClick={submit} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 inline-flex items-center gap-2">
+            <button disabled={submitting} onClick={submit} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 inline-flex items-center gap-2 w-full sm:w-auto justify-center">
               <Send className="w-4 h-4"/> Submit Assessment
             </button>
           </div>

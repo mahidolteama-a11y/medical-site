@@ -19,6 +19,7 @@ export const Dashboard: React.FC = () => {
   const [patientProfile, setPatientProfile] = useState<PatientProfile | null>(null)
   const [emergencyLoading, setEmergencyLoading] = useState(false)
   const [patientAppointments, setPatientAppointments] = useState<Task[]>([])
+  const [myAppointments, setMyAppointments] = useState<Task[]>([])
 
   const fetchPatientProfile = async () => {
     if (user?.id) {
@@ -91,6 +92,16 @@ export const Dashboard: React.FC = () => {
     fetchAnnouncements()
     if (user?.role === 'doctor' || user?.role === 'volunteer') {
       fetchPatients()
+      // Load doctor/volunteer own appointments
+      ;(async () => {
+        try {
+          const { data } = await getTasks()
+          const mine = (data || []).filter(t => t.assigned_to === user?.id && !!t.patient_id)
+          setMyAppointments(mine as any)
+        } catch (e) {
+          console.warn('Unable to load my appointments', e)
+        }
+      })()
     } else if (user?.role === 'patient') {
       fetchPatientProfile()
     }
@@ -216,6 +227,14 @@ export const Dashboard: React.FC = () => {
     .filter(t => t.due_date === todayYMD && activeStatuses.has(t.status))
     .sort((a,b)=> (a.due_time||'').localeCompare(b.due_time||''))
   const patientUpcomingAppointments = patientAppointments
+    .filter(t => (t.due_date || '') > todayYMD && activeStatuses.has(t.status))
+    .sort((a,b)=> (a.due_date||'').localeCompare(b.due_date||'') || (a.due_time||'').localeCompare(b.due_time||''))
+
+  // Doctor/Volunteer own appointments
+  const myTodayAppointments = myAppointments
+    .filter(t => t.due_date === todayYMD && activeStatuses.has(t.status))
+    .sort((a,b)=> (a.due_time||'').localeCompare(b.due_time||''))
+  const myUpcomingAppointments = myAppointments
     .filter(t => (t.due_date || '') > todayYMD && activeStatuses.has(t.status))
     .sort((a,b)=> (a.due_date||'').localeCompare(b.due_date||'') || (a.due_time||'').localeCompare(b.due_time||''))
   const patientStats = getPatientStatistics()
@@ -371,7 +390,7 @@ export const Dashboard: React.FC = () => {
         {user?.role === 'patient' && (
           <div className="md:col-span-2 lg:col-span-3 mb-4">
             <div className="bg-red-50 border-2 border-red-200 rounded-xl p-6">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row justify-between gap-3">
                 <div className="flex items-center space-x-4">
                   <div className="bg-red-100 p-3 rounded-lg">
                     <Phone className="w-8 h-8 text-red-600" />
@@ -389,7 +408,7 @@ export const Dashboard: React.FC = () => {
                 <button
                   onClick={handleEmergency}
                   disabled={emergencyLoading || !patientProfile}
-                  className="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 flex items-center space-x-2 font-semibold text-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95"
+                  className="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 flex items-center space-x-2 font-semibold text-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95 w-full sm:w-auto justify-center"
                 >
                   {emergencyLoading ? (
                     <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -449,6 +468,59 @@ export const Dashboard: React.FC = () => {
                   {patientUpcomingAppointments.slice(0,5).map((a)=> (
                     <li key={a.id} className="flex items-center justify-between">
                       <div className="text-sm text-gray-900 font-medium">{a.title || 'Appointment'}</div>
+                      <div className="text-sm text-gray-600">{a.due_date}{a.due_time ? ` ${a.due_time}` : ''}</div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Doctor/Volunteer: Today & Upcoming appointments */}
+        {(user?.role === 'doctor' || user?.role === 'volunteer') && (
+          <>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-gray-900">Today’s Appointments</h3>
+                <button
+                  onClick={() => { try { window.dispatchEvent(new CustomEvent('codex:setView', { detail: 'tasks' })) } catch {}; if ((window as any).setAppView) (window as any).setAppView('tasks') }}
+                  className="text-sm text-blue-600 hover:text-blue-800"
+                >
+                  View all
+                </button>
+              </div>
+              {myTodayAppointments.length === 0 ? (
+                <p className="text-sm text-gray-600">No appointments today.</p>
+              ) : (
+                <ul className="space-y-3">
+                  {myTodayAppointments.slice(0,5).map((a)=> (
+                    <li key={a.id} className="flex items-center justify-between">
+                      <div className="text-sm text-gray-900 font-medium">{a.patient?.name || 'Patient'} — {a.title || 'Appointment'}</div>
+                      <div className="text-sm text-gray-600">{a.due_time || ''}</div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-gray-900">Upcoming Appointments</h3>
+                <button
+                  onClick={() => { try { window.dispatchEvent(new CustomEvent('codex:setView', { detail: 'tasks' })) } catch {}; if ((window as any).setAppView) (window as any).setAppView('tasks') }}
+                  className="text-sm text-blue-600 hover:text-blue-800"
+                >
+                  View all
+                </button>
+              </div>
+              {myUpcomingAppointments.length === 0 ? (
+                <p className="text-sm text-gray-600">No upcoming appointments.</p>
+              ) : (
+                <ul className="space-y-3">
+                  {myUpcomingAppointments.slice(0,5).map((a)=> (
+                    <li key={a.id} className="flex items-center justify-between">
+                      <div className="text-sm text-gray-900 font-medium">{a.patient?.name || 'Patient'} — {a.title || 'Appointment'}</div>
                       <div className="text-sm text-gray-600">{a.due_date}{a.due_time ? ` ${a.due_time}` : ''}</div>
                     </li>
                   ))}

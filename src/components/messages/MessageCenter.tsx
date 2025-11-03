@@ -203,11 +203,11 @@ export const MessageCenter: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Messages</h1>
         <button
           onClick={() => setShowNewMessage(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2 transition-colors"
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2 transition-colors w-full sm:w-auto justify-center"
         >
           <Plus className="w-5 h-5" />
           <span>New Message</span>
@@ -215,13 +215,13 @@ export const MessageCenter: React.FC = () => {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="flex h-[600px]">
+        <div className="flex flex-col md:flex-row md:h-[600px]">
           {/* Conversations List */}
-          <div className="w-1/3 border-r border-gray-200">
+          <div className="w-full md:w-1/3 border-b md:border-b-0 md:border-r border-gray-200">
             <div className="p-4 border-b border-gray-200">
               <h3 className="font-semibold text-gray-900">Conversations</h3>
             </div>
-            <div className="overflow-y-auto" style={{height: 'calc(600px - 60px)'}}>
+            <div className="md:overflow-y-auto" style={{height: 'calc(600px - 60px)'}}>
               {conversations.map((conversation) => (
                 <div
                   key={conversation.userId}
@@ -332,7 +332,7 @@ export const MessageCenter: React.FC = () => {
                     className="flex-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm resize-none"
                   />
                   
-                  <div className="flex justify-between items-center mt-4">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mt-4">
                     <div className="flex space-x-2">
                       <label className="cursor-pointer">
                         <input
@@ -341,7 +341,7 @@ export const MessageCenter: React.FC = () => {
                           onChange={handleImageSelect}
                           className="hidden"
                         />
-                        <div className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all flex items-center space-x-1">
+                        <div className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all inline-flex items-center space-x-1">
                           <Camera className="w-4 h-4" />
                           <span className="text-sm">Image</span>
                         </div>

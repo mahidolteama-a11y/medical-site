@@ -154,9 +154,9 @@ export const PatientAppointments: React.FC = () => {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2"><CalendarDays className="w-6 h-6 text-blue-600" /> Appointments</h1>
-        <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2" onClick={() => { setForm(prev => ({ ...prev, doctorId: prev.doctorId || defaultDoctorId || '' })); setShowRequest(true) }}>
+        <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 w-full sm:w-auto justify-center" onClick={() => { setForm(prev => ({ ...prev, doctorId: prev.doctorId || defaultDoctorId || '' })); setShowRequest(true) }}>
           <Plus className="w-4 h-4" /> Request Appointment
         </button>
       </div>
@@ -174,7 +174,7 @@ export const PatientAppointments: React.FC = () => {
               <div className="space-y-3">
                 {grouped.overdue.map(appt => (
                   <div key={appt.id} className="bg-white border border-red-200 rounded-xl p-4 shadow-sm">
-                    <div className="flex items-start justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                       <div>
                         <div className="font-semibold text-gray-900">{appt.title || 'Appointment'}</div>
                         <div className="text-sm text-gray-600 mt-1">{appt.description}</div>
@@ -183,7 +183,7 @@ export const PatientAppointments: React.FC = () => {
                           {appt.assigned_to_user && <><span>•</span><UserIcon className="w-4 h-4" /> {appt.assigned_to_user.full_name}</>}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 sm:self-start">
                         <div className="px-2 py-1 rounded-full text-xs font-medium border bg-red-50 text-red-800 border-red-200 h-fit">Overdue</div>
                         <button onClick={() => cancelAppt(appt.id)} className="px-3 py-1 bg-red-600 text-white text-xs rounded">Cancel</button>
                       </div>
@@ -200,7 +200,7 @@ export const PatientAppointments: React.FC = () => {
               <div className="space-y-3">
                 {grouped.upcoming.map(appt => (
                   <div key={appt.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-                    <div className="flex items-start justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                       <div>
                         <div className="font-semibold text-gray-900">{appt.title || 'Appointment'}</div>
                         <div className="text-sm text-gray-600 mt-1">{appt.description}</div>
@@ -209,7 +209,7 @@ export const PatientAppointments: React.FC = () => {
                           {appt.assigned_to_user && <><span>•</span><UserIcon className="w-4 h-4" /> {appt.assigned_to_user.full_name}</>}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 sm:self-start">
                         <div className="px-2 py-1 rounded-full text-xs font-medium border bg-blue-50 text-blue-800 border-blue-200 h-fit">{appt.status.replace('_',' ')}</div>
                         <button onClick={() => cancelAppt(appt.id)} className="px-3 py-1 bg-red-600 text-white text-xs rounded">Cancel</button>
                       </div>

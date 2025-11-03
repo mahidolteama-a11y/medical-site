@@ -112,7 +112,7 @@ export const PatientProfile: React.FC = () => {
             {/* Assigned VHV Details */}
             {assignedVhv && (
               <div className="lg:col-span-2 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <div className="bg-blue-100 p-2 rounded-lg"><User className="w-5 h-5 text-blue-600"/></div>
                     <div>
@@ -121,7 +121,7 @@ export const PatientProfile: React.FC = () => {
                       <div className="text-sm text-blue-800">{assignedVhv.email || ''} {assignedVhv.phone ? ` • ${assignedVhv.phone}` : ''}</div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 sm:self-start">
                     <button
                       onClick={() => {
                         try { localStorage.setItem('message:recipient', assignedVhv.user_id) } catch {}

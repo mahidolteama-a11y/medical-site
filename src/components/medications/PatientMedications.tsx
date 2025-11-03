@@ -45,9 +45,9 @@ export const PatientMedications: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div className="flex items-center gap-3"><div className="bg-purple-100 p-2 rounded-lg"><Pill className="w-6 h-6 text-purple-700"/></div><h1 className="text-2xl font-bold text-gray-900">My Medications</h1></div>
-        <button onClick={openCreate} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 inline-flex items-center gap-2"><Plus className="w-4 h-4"/> Add</button>
+        <button onClick={openCreate} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 inline-flex items-center gap-2 w-full sm:w-auto justify-center"><Plus className="w-4 h-4"/> Add</button>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -55,14 +55,14 @@ export const PatientMedications: React.FC = () => {
           {meds.length === 0 && <div className="p-6 text-gray-600">No medications added.</div>}
           {meds.map(m => (
             <div key={m.id} className="p-6">
-              <div className="flex items-start justify-between">
+              <div className="flex flex-col sm:flex-row justify-between gap-3">
                 <div>
                   <div className="font-semibold text-gray-900">{m.name} {m.dosage && <span className="text-gray-600 font-normal">• {m.dosage}</span>}</div>
                   {m.instructions && <div className="text-sm text-gray-700">{m.instructions}</div>}
                   <div className="text-sm text-gray-700 flex items-center gap-2 mt-1"><Clock className="w-4 h-4"/> {(m.times||[]).join(', ')}</div>
                   <div className="text-xs text-gray-500 mt-1">Reminders: {m.reminders_enabled!==false ? 'On' : 'Off'} {m.start_date && ` • from ${m.start_date}`} {m.end_date && ` • until ${m.end_date}`}</div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 sm:self-start">
                   <button onClick={()=>openEdit(m)} className="px-3 py-2 border rounded">Edit</button>
                   <button onClick={async()=>{ if(!confirm('Delete medication?')) return; await deleteMedication(m.id); load() }} className="px-3 py-2 border rounded text-red-700 border-red-300">Delete</button>
                 </div>
@@ -122,4 +122,3 @@ export const PatientMedications: React.FC = () => {
 }
 
 export default PatientMedications
-

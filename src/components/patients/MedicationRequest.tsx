@@ -98,7 +98,7 @@ export const MedicationRequest: React.FC = () => {
             </ul>
           </div>
           <div className="flex justify-end">
-            <button disabled={!canSubmit || submitting} onClick={submit} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 inline-flex items-center gap-2">
+            <button disabled={!canSubmit || submitting} onClick={submit} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 inline-flex items-center gap-2 w-full sm:w-auto justify-center">
               <Send className="w-4 h-4"/> Submit Request
             </button>
           </div>
