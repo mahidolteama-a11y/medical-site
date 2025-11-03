@@ -12,7 +12,6 @@ export const MessageCenter: React.FC = () => {
   const [newMessage, setNewMessage] = useState('')
   const [showNewMessage, setShowNewMessage] = useState(false)
   const [selectedRecipient, setSelectedRecipient] = useState<string>('')
-  const [messageSubject, setMessageSubject] = useState('')
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
@@ -147,7 +146,7 @@ export const MessageCenter: React.FC = () => {
       const { data, error } = await sendMessageToDatabase({
         sender_id: user?.id || '',
         recipient_id: recipientId,
-        subject: showNewMessage ? messageSubject : 'Re: Conversation',
+        subject: '',
         content: newMessage || (selectedImage ? `[Image: ${selectedImage.name}]` : ''),
         image_url: imageUrl,
         image_name: imageName,
@@ -161,7 +160,6 @@ export const MessageCenter: React.FC = () => {
         setNewMessage('')
         removeImage()
         if (showNewMessage) {
-          setMessageSubject('')
           setShowNewMessage(false)
           setSelectedRecipient('')
           setSearchTerm('')
@@ -305,18 +303,7 @@ export const MessageCenter: React.FC = () => {
                     </div>
                   </div>
                   
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Subject
-                    </label>
-                    <input
-                      type="text"
-                      value={messageSubject}
-                      onChange={(e) => setMessageSubject(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                      placeholder="Message subject..."
-                    />
-                  </div>
+                  {/* Subject removed per request */}
                 </div>
                 
                 <div className="flex-1 mt-4 flex flex-col">

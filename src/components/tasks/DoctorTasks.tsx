@@ -2,10 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { getTasks, getUsers, updateTask, getPatientProfiles, createTask } from '../../lib/dummyDatabase'
 import type { Task, User, PatientProfile } from '../../types'
-import { CalendarDays, CheckSquare, Edit, CheckCircle, XCircle, Search, Plus } from 'lucide-react'
+import { CalendarDays, Edit, CheckCircle, XCircle, Search, Plus } from 'lucide-react'
 import SimpleModal from '../common/SimpleModal'
 
-type Tab = 'appointments' | 'general'
+type Tab = 'appointments'
 
 const formatDate = (d?: string) => (d ? new Date(d).toLocaleDateString() : '—')
 const formatDateTime = (d?: string, t?: string) => {
@@ -42,7 +42,6 @@ const DoctorTasks: React.FC = () => {
   useEffect(() => { load() }, [])
 
   const appts = useMemo(() => tasks.filter(t => !!t.patient_id), [tasks])
-  const generals = useMemo(() => tasks.filter(t => !t.patient_id), [tasks])
 
   const filteredPendingAppts = useMemo(() => {
     const t = search.toLowerCase()
@@ -67,12 +66,7 @@ const DoctorTasks: React.FC = () => {
     ))
   }, [appts, search])
 
-  const filteredGenerals = useMemo(() => {
-    const t = search.toLowerCase()
-    return generals.filter(a => (
-      (a.title||'').toLowerCase().includes(t) || (a.description||'').toLowerCase().includes(t)
-    ))
-  }, [generals, search])
+  // General tasks removed for doctor view
 
   const approve = async (task: Task) => {
     await updateTask(task.id, { status: 'in_progress' })
@@ -99,9 +93,6 @@ const DoctorTasks: React.FC = () => {
           <button className={`px-4 py-2 text-sm inline-flex items-center gap-2 whitespace-nowrap ${tab==='appointments'?'bg-blue-600 text-white':'bg-white text-gray-700'}`} onClick={()=>setTab('appointments')}>
             <CalendarDays className="w-4 h-4"/> Appointments
           </button>
-          <button className={`px-4 py-2 text-sm border-l border-gray-200 inline-flex items-center gap-2 whitespace-nowrap ${tab==='general'?'bg-blue-600 text-white':'bg-white text-gray-700'}`} onClick={()=>setTab('general')}>
-            <CheckSquare className="w-4 h-4"/> General Tasks
-          </button>
         </div>
         <div className="flex items-center gap-2">
           {tab==='appointments' && (
@@ -121,7 +112,7 @@ const DoctorTasks: React.FC = () => {
 
       {loading ? (
         <div className="py-10 text-center">Loading…</div>
-      ) : tab==='appointments' ? (
+      ) : (
         <>
           {/* Needs Approval (not date-filtered) */}
           <div className="bg-white border rounded-xl overflow-hidden mb-6">
@@ -214,32 +205,6 @@ const DoctorTasks: React.FC = () => {
             </table>
           </div>
         </>
-      ) : (
-        <div className="bg-white border rounded-xl overflow-hidden">
-          <table className="min-w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Title</th>
-                <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Due</th>
-                <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Priority</th>
-                <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filteredGenerals.map(t => (
-                <tr key={t.id}>
-                  <td className="px-4 py-2 text-sm text-gray-900">{t.title}</td>
-                  <td className="px-4 py-2 text-sm">{formatDate(t.due_date)}</td>
-                  <td className="px-4 py-2 text-sm capitalize">{t.priority}</td>
-                  <td className="px-4 py-2 text-sm capitalize">{t.status.replace('_',' ')}</td>
-                </tr>
-              ))}
-              {filteredGenerals.length===0 && (
-                <tr><td colSpan={4} className="px-4 py-6 text-center text-gray-500">No general tasks.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
       )}
 
       <SimpleModal open={showCreate} title="Create Appointment" onClose={()=>setShowCreate(false)}>
