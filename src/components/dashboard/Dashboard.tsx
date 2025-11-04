@@ -572,7 +572,7 @@ export const Dashboard: React.FC = () => {
 
       {/* Announcements Section */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
           <h2 className="text-xl font-semibold text-gray-900 flex items-center space-x-2">
             <Megaphone className="w-6 h-6 text-blue-600" />
             <span>Announcements</span>
@@ -580,7 +580,7 @@ export const Dashboard: React.FC = () => {
           {user?.role === 'doctor' && (
             <button
               onClick={() => setShowForm(true)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2 transition-colors"
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2 transition-colors w-full sm:w-auto justify-center"
             >
               <Plus className="w-4 h-4" />
               <span>Add Announcement</span>

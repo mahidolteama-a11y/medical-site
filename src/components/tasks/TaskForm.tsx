@@ -22,7 +22,8 @@ export const TaskForm: React.FC<TaskFormProps> = ({ task, onClose, rolesFilter, 
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent',
+    // priority left blank until user selects
+    priority: '' as '' | 'low' | 'medium' | 'high' | 'urgent',
     status: 'pending' as 'pending' | 'in_progress' | 'completed' | 'cancelled',
     assigned_to: forceAssignedToUserId || '',
     patient_id: '',
@@ -111,6 +112,13 @@ export const TaskForm: React.FC<TaskFormProps> = ({ task, onClose, rolesFilter, 
         setLoading(false)
         return
       }
+    }
+
+    // Require priority selection
+    if (!formData.priority) {
+      alert('Please select a priority for this task.')
+      setLoading(false)
+      return
     }
 
     try {
@@ -249,9 +257,13 @@ export const TaskForm: React.FC<TaskFormProps> = ({ task, onClose, rolesFilter, 
                 required
                 value={formData.title}
                 onChange={handleChange}
+                maxLength={100}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 placeholder="Enter task title..."
               />
+              <div className="mt-1 text-right text-xs text-gray-400">
+                {formData.title.length}/100
+              </div>
             </div>
 
             <div className="md:col-span-2">
@@ -264,9 +276,13 @@ export const TaskForm: React.FC<TaskFormProps> = ({ task, onClose, rolesFilter, 
                 rows={4}
                 value={formData.description}
                 onChange={handleChange}
+                maxLength={5000}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 placeholder="Describe the task in detail..."
               />
+              <div className="mt-1 text-right text-xs text-gray-400">
+                {formData.description.length}/5000
+              </div>
             </div>
 
             <div>
@@ -280,6 +296,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({ task, onClose, rolesFilter, 
                 onChange={handleChange}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               >
+                <option value="">Select priority...</option>
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
                 <option value="high">High</option>
