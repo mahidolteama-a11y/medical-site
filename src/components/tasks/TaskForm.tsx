@@ -107,18 +107,21 @@ export const TaskForm: React.FC<TaskFormProps> = ({ task, onClose, rolesFilter, 
         setLoading(false)
         return
       }
-      if (!formData.due_date) {
-        alert('Please select a date for the appointment.')
-        setLoading(false)
-        return
-      }
-      // Prevent past dates
-      const today = new Date().toISOString().slice(0,10)
-      if (formData.due_date < today) {
-        alert('Due date cannot be in the past.')
-        setLoading(false)
-        return
-      }
+      // Appointment requires date (also enforced globally below)
+    }
+
+    // Due date is required for all tasks
+    if (!formData.due_date) {
+      alert('Please select a due date.')
+      setLoading(false)
+      return
+    }
+    // Prevent past dates for all tasks
+    const today = new Date().toISOString().slice(0,10)
+    if (formData.due_date < today) {
+      alert('Due date cannot be in the past.')
+      setLoading(false)
+      return
     }
 
     // Require priority selection
@@ -409,22 +412,20 @@ export const TaskForm: React.FC<TaskFormProps> = ({ task, onClose, rolesFilter, 
 
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              {taskType === 'appointment' ? 'Appointment Date *' : 'Due Date (Optional)'}
+              {taskType === 'appointment' ? 'Appointment Date *' : 'Due Date *'}
             </label>
             <input
               type="date"
               name="due_date"
               value={formData.due_date}
               onChange={handleChange}
-              required={taskType === 'appointment'}
+              required
               min={new Date().toISOString().slice(0,10)}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
             />
-            {taskType === 'appointment' && (
-              <p className="text-xs text-gray-500 mt-1">
-                Appointment date is required and will appear in the volunteer's appointment schedule
-              </p>
-            )}
+            <p className="text-xs text-gray-500 mt-1">
+              Due date is required and cannot be in the past.
+            </p>
           </div>
 
           {/* Custom form fields for volunteers */}
