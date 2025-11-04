@@ -226,8 +226,8 @@ export const TaskList: React.FC<TaskListProps> = ({ personalOnly = false, title 
           >
             <div className="flex justify-between items-start mb-4">
               <div className="flex-1">
-                <h3 className="font-semibold text-gray-900 text-lg mb-2">{task.title}</h3>
-                <p className="text-gray-600 text-sm mb-3">{task.description}</p>
+                <h3 className="font-semibold text-gray-900 text-lg mb-2 line-clamp-1 break-words">{task.title}</h3>
+                <p className="text-gray-600 text-sm mb-3 line-clamp-2 break-words">{task.description}</p>
               </div>
               {canModifyTasks && (
                 <div className="flex space-x-2 ml-4">

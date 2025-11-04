@@ -112,6 +112,13 @@ export const TaskForm: React.FC<TaskFormProps> = ({ task, onClose, rolesFilter, 
         setLoading(false)
         return
       }
+      // Prevent past dates
+      const today = new Date().toISOString().slice(0,10)
+      if (formData.due_date < today) {
+        alert('Due date cannot be in the past.')
+        setLoading(false)
+        return
+      }
     }
 
     // Require priority selection
@@ -410,6 +417,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({ task, onClose, rolesFilter, 
               value={formData.due_date}
               onChange={handleChange}
               required={taskType === 'appointment'}
+              min={new Date().toISOString().slice(0,10)}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
             />
             {taskType === 'appointment' && (
